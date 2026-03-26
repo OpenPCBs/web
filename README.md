@@ -48,3 +48,20 @@ The PostgreSQL connection string is **not** used in the browser app. Keep the da
 - `src/lib/supabase.js`
 - `src/services/projects.js`
 - `supabase/openpcb_schema.sql`
+
+
+## GitHub Pages notes
+
+This app is configured for GitHub Pages now:
+- Vite uses `base: './'`
+- Routing uses `HashRouter`
+
+Set these repository secrets or environment variables before building:
+
+```bash
+VITE_CLERK_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
+```
+
+If you deploy without the Clerk key, the app will show a config message instead of a blank page.
