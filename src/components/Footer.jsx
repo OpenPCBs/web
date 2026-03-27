@@ -7,30 +7,27 @@ function Footer() {
             <span className="brand-icon">◫</span>
             <div>
               <strong>OpenPCB</strong>
-              <span>Forkable hardware for everyone.</span>
+              <span>Publish boards. Preview files. Quote fabrication.</span>
             </div>
           </div>
-          <p>
-            Publish KiCad and Altium projects, discover reusable boards, and make open
-            hardware easier to search, view, and remix.
-          </p>
+          <p>OpenPCB is built for sharing real hardware files with enough structure for reuse, quoting, and manufacturing handoff.</p>
         </div>
         <div>
-          <h4>Starter MVP</h4>
+          <h4>Core workflow</h4>
           <ul>
-            <li>Public project pages</li>
-            <li>Upload flow</li>
-            <li>Search and tags</li>
-            <li>Simple user dashboard</li>
+            <li>Publish live project pages</li>
+            <li>Preview uploads before posting</li>
+            <li>Explore public boards</li>
+            <li>Fork into your workspace</li>
           </ul>
         </div>
         <div>
-          <h4>Next ideas</h4>
+          <h4>Integrations</h4>
           <ul>
-            <li>KiCad plugin</li>
-            <li>BOM sourcing links</li>
-            <li>Version diffs</li>
-            <li>Manufacturing handoff</li>
+            <li>Clerk authentication</li>
+            <li>Supabase data and storage</li>
+            <li>JLCPCB and PCBWay quotes</li>
+            <li>Stripe checkout</li>
           </ul>
         </div>
       </div>

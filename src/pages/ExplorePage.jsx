@@ -19,16 +19,16 @@ function ExplorePage({ projects, isSupabaseConfigured, projectsLoading, projects
       <div className="container">
         <div className="section-heading compact-heading">
           <span className="eyebrow">Explore</span>
-          <h1>Find open hardware that is already halfway to usable</h1>
+          <h1>Browse public PCB projects</h1>
           <p>
-            Search by keyword, tool, and board type. Public projects are loaded from
-            Supabase when configured, and seeded demo boards remain available as fallback.
+            Search live projects by keyword, tag, tool, or category. This page now shows
+            only real data from your configured backend.
           </p>
         </div>
 
         {!isSupabaseConfigured ? (
           <div className="status-banner status-banner-warning">
-            Supabase environment variables are missing, so the app is showing starter data only.
+            Supabase is not configured yet, so no public project catalog can load.
           </div>
         ) : null}
 
@@ -37,12 +37,7 @@ function ExplorePage({ projects, isSupabaseConfigured, projectsLoading, projects
         <div className="filters-shell">
           <label className="filter-field">
             <span>Search</span>
-            <input
-              type="text"
-              placeholder="USB-C, RFID, buck converter..."
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
+            <input type="text" placeholder="RFID, audio, buck converter..." value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
 
           <label className="filter-field">
@@ -62,14 +57,12 @@ function ExplorePage({ projects, isSupabaseConfigured, projectsLoading, projects
         {!projectsLoading && filteredProjects.length === 0 ? (
           <div className="empty-state">
             <h2>No matching projects</h2>
-            <p>Try a broader search or publish the first project in this category.</p>
+            <p>Try a broader search, or publish the first project in this category.</p>
           </div>
         ) : null}
 
         <div className="project-grid">
-          {filteredProjects.map((project) => (
-            <ProjectCard key={`${project.source || 'seed'}-${project.id}`} project={project} />
-          ))}
+          {filteredProjects.map((project) => <ProjectCard key={project.id} project={project} />)}
         </div>
       </div>
     </section>

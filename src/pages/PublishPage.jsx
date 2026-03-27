@@ -1,38 +1,46 @@
 import { Show, SignInButton, SignUpButton, useUser } from '@clerk/react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import FilePreview from '../components/FilePreview';
+import { buildFilePreview } from '../lib/filePreview';
 
-const initialForm = {
+const initialFormState = {
   title: '',
   author: '',
-  summary: '',
-  description: '',
   tool: 'KiCad',
   license: 'CERN-OHL-S',
+  summary: '',
+  description: '',
   tags: '',
-  category: 'General',
+  category: '',
 };
 
 function PublishPage({ onPublishProject, isSupabaseConfigured }) {
-  const navigate = useNavigate();
   const { user } = useUser();
-  const [formState, setFormState] = useState(initialForm);
+  const navigate = useNavigate();
+  const [formState, setFormState] = useState(initialFormState);
   const [archiveFile, setArchiveFile] = useState(null);
-  const [savedMessage, setSavedMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [preview, setPreview] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [savedMessage, setSavedMessage] = useState('');
 
   useEffect(() => {
     setFormState((current) => ({
       ...current,
-      author:
-        user?.fullName || user?.username || user?.primaryEmailAddress?.emailAddress || '',
+      author: user?.fullName || user?.username || user?.primaryEmailAddress?.emailAddress || '',
     }));
   }, [user]);
 
   function handleChange(event) {
     const { name, value } = event.target;
     setFormState((current) => ({ ...current, [name]: value }));
+  }
+
+  async function handleFileChange(event) {
+    const file = event.target.files?.[0] || null;
+    setArchiveFile(file);
+    setPreview(file ? await buildFilePreview(file) : null);
   }
 
   async function handleSubmit(event) {
@@ -43,7 +51,7 @@ function PublishPage({ onPublishProject, isSupabaseConfigured }) {
 
     try {
       await onPublishProject(formState, archiveFile);
-      setSavedMessage('Project saved to Supabase. Redirecting to dashboard...');
+      setSavedMessage('Project published successfully. Redirecting to dashboard…');
       setTimeout(() => navigate('/dashboard'), 700);
     } catch (error) {
       setErrorMessage(error.message || 'Could not publish this project.');
@@ -57,32 +65,24 @@ function PublishPage({ onPublishProject, isSupabaseConfigured }) {
       <div className="container publish-layout">
         <div className="section-heading compact-heading publish-copy">
           <span className="eyebrow">Publish</span>
-          <h1>Create a public project page for your PCB</h1>
-          <p>
-            This form now targets Supabase for project metadata and can upload a design
-            archive to storage.
-          </p>
+          <h1>Create a public project page</h1>
+          <p>Upload a real board file, preview it before publishing, and store project metadata in Supabase.</p>
+
           <div className="callout-card">
-            <strong>Supabase requirements</strong>
-            <p>
-              Run the included SQL file, create the <code>project-archives</code> bucket,
-              and finish the Clerk-to-Supabase auth integration before publishing.
-            </p>
+            <strong>Preview support</strong>
+            <p>Images and PDFs embed directly. Individual Gerber, drill, KiCad schematic, and KiCad board files get an in-browser preview. Zip bundles still upload normally.</p>
           </div>
 
           {!isSupabaseConfigured ? (
             <div className="status-banner status-banner-warning">
-              Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> to <code>.env.local</code> before publishing.
+              Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> before publishing.
             </div>
           ) : null}
 
           <Show when="signed-out">
             <div className="callout-card auth-callout">
               <strong>Sign in before publishing</strong>
-              <p>
-                This page uses Clerk auth. Sign in or create an account, then come back to
-                publish your design.
-              </p>
+              <p>This page requires a signed-in Clerk session so the project can be linked to its owner.</p>
               <div className="form-actions stacked-actions">
                 <SignInButton />
                 <SignUpButton />
@@ -96,26 +96,12 @@ function PublishPage({ onPublishProject, isSupabaseConfigured }) {
             <div className="form-grid">
               <label>
                 <span>Project title</span>
-                <input
-                  required
-                  name="title"
-                  value={formState.title}
-                  onChange={handleChange}
-                  placeholder="BurnVinyl RFID Reader Baseboard"
-                />
+                <input required name="title" value={formState.title} onChange={handleChange} placeholder="BurnVinyl RFID Reader Baseboard" />
               </label>
-
               <label>
                 <span>Author</span>
-                <input
-                  required
-                  name="author"
-                  value={formState.author}
-                  onChange={handleChange}
-                  placeholder="Your name or lab"
-                />
+                <input required name="author" value={formState.author} onChange={handleChange} placeholder="Your name or team" />
               </label>
-
               <label>
                 <span>EDA tool</span>
                 <select name="tool" value={formState.tool} onChange={handleChange}>
@@ -123,7 +109,6 @@ function PublishPage({ onPublishProject, isSupabaseConfigured }) {
                   <option>Altium</option>
                 </select>
               </label>
-
               <label>
                 <span>License</span>
                 <select name="license" value={formState.license} onChange={handleChange}>
@@ -138,57 +123,31 @@ function PublishPage({ onPublishProject, isSupabaseConfigured }) {
 
             <label>
               <span>Short summary</span>
-              <textarea
-                required
-                name="summary"
-                value={formState.summary}
-                onChange={handleChange}
-                rows="3"
-                placeholder="What does this board do, and why is it useful?"
-              />
+              <textarea required name="summary" value={formState.summary} onChange={handleChange} rows="3" placeholder="What the board does and why someone would want to reuse it." />
             </label>
 
             <label>
               <span>Detailed description</span>
-              <textarea
-                name="description"
-                value={formState.description}
-                onChange={handleChange}
-                rows="5"
-                placeholder="Blocks, intended use, stack-up, power sections, RF considerations, notes for remixers..."
-              />
+              <textarea name="description" value={formState.description} onChange={handleChange} rows="5" placeholder="Architecture, power rails, interfaces, stack-up, assembly notes, known constraints..." />
             </label>
 
             <div className="form-grid">
               <label>
                 <span>Tags</span>
-                <input
-                  name="tags"
-                  value={formState.tags}
-                  onChange={handleChange}
-                  placeholder="RFID, 915 MHz, Linux SBC, Audio"
-                />
+                <input name="tags" value={formState.tags} onChange={handleChange} placeholder="RFID, audio, Linux SBC" />
               </label>
               <label>
                 <span>Category</span>
-                <input
-                  name="category"
-                  value={formState.category}
-                  onChange={handleChange}
-                  placeholder="RF, Audio, Power..."
-                />
+                <input name="category" value={formState.category} onChange={handleChange} placeholder="RF, Audio, Power" />
               </label>
             </div>
 
             <label>
-              <span>Project archive (zip, Gerbers, or design bundle)</span>
-              <input
-                type="file"
-                accept=".zip,.kicad_pro,.kicad_pcb,.kicad_sch,.sch,.pcbdoc,.prjpcb,.rar,.7z,.pdf"
-                onChange={(event) => setArchiveFile(event.target.files?.[0] || null)}
-              />
+              <span>Project file or archive</span>
+              <input type="file" accept=".zip,.gbr,.gtl,.gbl,.gto,.gbo,.drl,.txt,.kicad_pcb,.kicad_sch,.sch,.pcbdoc,.prjpcb,.pdf,.png,.jpg,.jpeg,.webp,.svg" onChange={handleFileChange} />
             </label>
 
+            {preview ? <FilePreview preview={preview} /> : null}
             {errorMessage ? <div className="status-banner status-banner-error">{errorMessage}</div> : null}
             {savedMessage ? <div className="status-banner status-banner-success">{savedMessage}</div> : null}
 

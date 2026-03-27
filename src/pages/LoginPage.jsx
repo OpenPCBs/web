@@ -9,12 +9,8 @@ function LoginPage() {
       <div className="container auth-shell">
         <div className="auth-card">
           <span className="eyebrow">Account</span>
-          <h1>Use Clerk to access your OpenPCB workspace</h1>
-          <p>
-            This React + Vite app expects Clerk to provide authentication and Supabase to
-            store project data. Add both sets of environment variables in <code>.env.local</code>,
-            then use the buttons below.
-          </p>
+          <h1>Access your OpenPCB workspace</h1>
+          <p>Use Clerk to sign in, publish projects, manage your dashboard, and start fabrication orders from your project pages.</p>
 
           <div className="form-actions stacked-actions auth-actions-block">
             <Show when="signed-out">
@@ -26,14 +22,10 @@ function LoginPage() {
                 <UserButton />
                 <div>
                   <strong>{user?.fullName || user?.username || 'Signed in'}</strong>
-                  <p className="auth-subcopy">
-                    You can now publish projects to Supabase and keep a per-user dashboard.
-                  </p>
+                  <p className="auth-subcopy">Your account is ready to publish and manage projects.</p>
                 </div>
               </div>
-              <Link className="button button-primary" to="/dashboard">
-                Go to dashboard
-              </Link>
+              <Link className="button button-primary" to="/dashboard">Go to dashboard</Link>
             </Show>
           </div>
         </div>

@@ -10,7 +10,6 @@ import PublishPage from './pages/PublishPage';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { featuredProjects } from './data/projects';
 import { isSupabaseConfigured, useSupabaseClient } from './lib/supabase';
 import { fetchProjects, forkProject, publishProject } from './services/projects';
 
@@ -39,60 +38,34 @@ function App() {
 
       try {
         const projects = await fetchProjects(supabase, user?.id);
-
-        if (isMounted) {
-          setRemoteProjects(projects);
-        }
+        if (isMounted) setRemoteProjects(projects);
       } catch (error) {
-        if (isMounted) {
-          setProjectsError(error.message || 'Could not load projects from Supabase.');
-        }
+        if (isMounted) setProjectsError(error.message || 'Could not load projects from Supabase.');
       } finally {
-        if (isMounted) {
-          setProjectsLoading(false);
-        }
+        if (isMounted) setProjectsLoading(false);
       }
     }
 
     loadProjects();
-
     return () => {
       isMounted = false;
     };
   }, [supabase, user?.id]);
 
   async function handlePublishProject(formState, archiveFile) {
-    const project = await publishProject({
-      supabase,
-      user,
-      formState,
-      archiveFile,
-    });
-
+    const project = await publishProject({ supabase, user, formState, archiveFile });
     setRemoteProjects((current) => [project, ...current]);
     return project;
   }
 
   async function handleForkProject(project) {
-    const clonedProject = await forkProject({
-      supabase,
-      user,
-      project,
-    });
-
+    const clonedProject = await forkProject({ supabase, user, project });
     setRemoteProjects((current) => [clonedProject, ...current]);
     return clonedProject;
   }
 
-  const allProjects = useMemo(() => {
-    const existingIds = new Set(remoteProjects.map((project) => project.id));
-    const fallbackProjects = featuredProjects.filter((project) => !existingIds.has(project.id));
-    return [...remoteProjects, ...fallbackProjects];
-  }, [remoteProjects]);
-
-  const userProjects = useMemo(() => {
-    return remoteProjects.filter((project) => project.isUserProject);
-  }, [remoteProjects]);
+  const recentProjects = useMemo(() => remoteProjects.slice(0, 3), [remoteProjects]);
+  const userProjects = useMemo(() => remoteProjects.filter((project) => project.isUserProject), [remoteProjects]);
 
   return (
     <div className="app-shell">
@@ -103,8 +76,10 @@ function App() {
             path="/"
             element={
               <HomePage
-                featuredProjectCount={allProjects.length}
+                projectCount={remoteProjects.length}
+                recentProjects={recentProjects}
                 isSupabaseConfigured={isSupabaseConfigured()}
+                projectsLoading={projectsLoading}
               />
             }
           />
@@ -112,7 +87,7 @@ function App() {
             path="/explore"
             element={
               <ExplorePage
-                projects={allProjects}
+                projects={remoteProjects}
                 isSupabaseConfigured={isSupabaseConfigured()}
                 projectsLoading={projectsLoading}
                 projectsError={projectsError}
@@ -123,7 +98,7 @@ function App() {
             path="/project/:projectId"
             element={
               <ProjectPage
-                projects={allProjects}
+                projects={remoteProjects}
                 onForkProject={handleForkProject}
                 isSupabaseConfigured={isSupabaseConfigured()}
               />

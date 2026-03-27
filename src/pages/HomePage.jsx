@@ -3,49 +3,40 @@ import { Link } from 'react-router-dom';
 import ProjectCard from '../components/ProjectCard';
 import FeatureCard from '../components/FeatureCard';
 import StatCard from '../components/StatCard';
-import { featuredProjects } from '../data/projects';
 
 const features = [
   {
     eyebrow: 'Publish',
-    title: 'Store board metadata and files in Supabase',
-    body:
-      'Project records now target a real Supabase table instead of local storage, and design archives can be uploaded to a storage bucket.',
+    title: 'Upload real design files',
+    body: 'Publish project metadata to Supabase, attach archives or source files, and give people enough context to reuse your board quickly.',
   },
   {
-    eyebrow: 'Explore',
-    title: 'Mix starter content with live projects',
-    body:
-      'The explore page loads public projects from Supabase and still falls back to seeded demo boards so the UI stays usable while you build out the backend.',
+    eyebrow: 'Preview',
+    title: 'See what you are uploading before you publish',
+    body: 'Gerber layers, KiCad text files, images, and PDFs can be inspected in-browser before they go live.',
   },
   {
-    eyebrow: 'Fork',
-    title: 'Use Clerk identity for ownership and RLS',
-    body:
-      'Clerk remains the sign-in layer while Supabase policies can lock inserts, updates, and private rows to the current signed-in user.',
+    eyebrow: 'Order',
+    title: 'Fabrication and checkout hooks are built in',
+    body: 'Project pages can request quotes from JLCPCB or PCBWay and start a Stripe checkout flow once your server functions are configured.',
   },
 ];
 
-function HomePage({ featuredProjectCount, isSupabaseConfigured }) {
+function HomePage({ projectCount, recentProjects, isSupabaseConfigured, projectsLoading }) {
   return (
     <>
       <section className="hero-section">
         <div className="container hero-grid">
           <div>
-            <span className="eyebrow hero-eyebrow">Open source PCB publishing, but usable</span>
+            <span className="eyebrow hero-eyebrow">Open hardware publishing for production work</span>
             <h1>OpenPCB</h1>
             <p className="hero-copy">
-              A React MVP for publishing, discovering, and reusing open source PCB
-              designs. Clerk handles user sessions, and Supabase can now back project data
-              and uploaded design archives.
+              Publish boards, share manufacturing files, preview uploads before they go live,
+              and hand projects off to fabrication without leaving the site.
             </p>
             <div className="hero-actions">
-              <Link to="/publish" className="button button-primary">
-                Publish a design
-              </Link>
-              <Link to="/explore" className="button button-secondary">
-                Explore projects
-              </Link>
+              <Link to="/publish" className="button button-primary">Publish a project</Link>
+              <Link to="/explore" className="button button-secondary">Browse projects</Link>
             </div>
             <div className="hero-auth-row">
               <Show when="signed-out">
@@ -68,11 +59,11 @@ function HomePage({ featuredProjectCount, isSupabaseConfigured }) {
               <div className="trace trace-3" />
             </div>
             <div className="hero-panel-copy">
-              <strong>Backend state</strong>
+              <strong>Deployment status</strong>
               <p>
                 {isSupabaseConfigured
-                  ? 'Supabase environment variables are expected, so the app can load public projects and publish new ones once your table and bucket exist.'
-                  : 'Clerk UI is wired, but Supabase environment variables still need to be added before the app can persist project data.'}
+                  ? 'The app is pointed at Supabase. Published projects, dashboard state, and archive uploads can be live once the database and bucket are ready.'
+                  : 'Add your Supabase environment variables before launch so publishing, dashboards, and file storage work in production.'}
               </p>
             </div>
           </div>
@@ -81,10 +72,10 @@ function HomePage({ featuredProjectCount, isSupabaseConfigured }) {
 
       <section className="section">
         <div className="container stats-grid">
-          <StatCard value={String(featuredProjectCount)} label="Projects visible in app" />
-          <StatCard value="5" label="Main app pages in this MVP" />
-          <StatCard value="React + Vite" label="Frontend stack" />
-          <StatCard value="Clerk + Supabase" label="Auth and data layers" />
+          <StatCard value={projectsLoading ? '…' : String(projectCount)} label="Public projects" />
+          <StatCard value="Live previews" label="Upload inspection" />
+          <StatCard value="JLCPCB + PCBWay" label="Quote targets" />
+          <StatCard value="Stripe" label="Checkout layer" />
         </div>
       </section>
 
@@ -92,16 +83,14 @@ function HomePage({ featuredProjectCount, isSupabaseConfigured }) {
         <div className="container">
           <div className="section-heading">
             <span className="eyebrow">Why OpenPCB</span>
-            <h2>Built for the actual workflow of open hardware</h2>
+            <h2>Built for files people actually want to manufacture</h2>
             <p>
-              Most sites either host files poorly or showcase projects without making them
-              truly reusable. OpenPCB can sit between those worlds.
+              The goal is not just to host projects. It is to make design handoff, reuse,
+              and quoting feel like one workflow.
             </p>
           </div>
           <div className="feature-grid">
-            {features.map((feature) => (
-              <FeatureCard key={feature.title} {...feature} />
-            ))}
+            {features.map((feature) => <FeatureCard key={feature.title} {...feature} />)}
           </div>
         </div>
       </section>
@@ -109,14 +98,25 @@ function HomePage({ featuredProjectCount, isSupabaseConfigured }) {
       <section className="section section-soft">
         <div className="container">
           <div className="section-heading">
-            <span className="eyebrow">Featured designs</span>
-            <h2>Starter content for the homepage</h2>
+            <span className="eyebrow">Recent projects</span>
+            <h2>{recentProjects.length ? 'Latest published boards' : 'No public projects yet'}</h2>
+            <p>
+              {recentProjects.length
+                ? 'These are the most recently published projects in the current database.'
+                : 'Once projects are published, they will appear here automatically. There is no seeded demo content in production mode.'}
+            </p>
           </div>
-          <div className="project-grid">
-            {featuredProjects.slice(0, 3).map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </div>
+          {recentProjects.length ? (
+            <div className="project-grid">
+              {recentProjects.map((project) => <ProjectCard key={project.id} project={project} />)}
+            </div>
+          ) : (
+            <div className="empty-state compact-empty-state">
+              <h3>Ready for the first upload</h3>
+              <p>Publish a real design to populate the homepage.</p>
+              <Link className="button button-primary" to="/publish">Publish project</Link>
+            </div>
+          )}
         </div>
       </section>
     </>

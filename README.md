@@ -1,23 +1,29 @@
 # OpenPCB React + Clerk + Supabase
 
-This Vite React app uses Clerk for sign-in and Supabase for project data and file storage.
+OpenPCB is a Vite + React app for publishing PCB projects, previewing uploads before publish, exploring public boards, and requesting fabrication quotes that can be checked out through Stripe.
 
-## Clerk setup
+## What is implemented
 
-Clerk React quickstart:
-https://clerk.com/docs/react/getting-started/quickstart
+- Clerk authentication for sign-in and user identity
+- Supabase-backed public projects, user dashboard, and archive uploads
+- Production cleanup of demo content and prototype copy
+- Upload previews for images, PDFs, Gerber/drill text files, and KiCad text files
+- Project-page quote actions for JLCPCB and PCBWay
+- Stripe checkout hook for paid fabrication orders
 
-Create a `.env.local` file and add your Clerk publishable key plus the Supabase values:
+## Environment variables
+
+Create a `.env.local` file:
 
 ```bash
 VITE_CLERK_PUBLISHABLE_KEY=YOUR_CLERK_PUBLISHABLE_KEY
-VITE_SUPABASE_URL=https://dyxxuinkpqkhhboqfikn.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_EfBpVJs_--XS7e-TmKAyKA_ohVRpC13
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
+VITE_SUPABASE_FUNCTIONS_URL=https://your-project.supabase.co/functions/v1
+VITE_APP_URL=https://your-public-site.example
 ```
 
-The app already wraps the Vite entry point with `ClerkProvider` in `src/main.jsx` and uses `Show`, `SignInButton`, `SignUpButton`, and `UserButton` in the UI.
-
-## Install and run
+## Frontend setup
 
 ```bash
 npm install
@@ -28,40 +34,37 @@ npm run dev
 
 1. In Clerk, activate the Supabase integration for your Clerk instance.
 2. In Supabase, add Clerk as a Third-Party Auth provider.
-3. In Supabase SQL Editor, run `supabase/openpcb_schema.sql`.
-4. The SQL file creates a `projects` table, enables RLS, creates a public `project-archives` bucket, and adds storage policies for paths that start with the Clerk user ID.
+3. Run `supabase/openpcb_schema.sql` in the Supabase SQL editor.
+4. Create or confirm the `project-archives` bucket.
+5. Deploy the Edge Functions in `supabase/functions`.
 
-## Important note about the database URL
+## Edge Function secrets
 
-The PostgreSQL connection string is **not** used in the browser app. Keep the database password server-side only. The client app only uses the project URL and the publishable key.
+Set these on Supabase before deploying functions:
 
-## What is wired now
+```bash
+STRIPE_SECRET_KEY=...
+JLCPCB_API_TOKEN=...
+PCBWAY_API_KEY=...
+```
 
-- Public project loading from Supabase
-- Per-user dashboard filtered by Clerk user ID
-- Project publishing to a `projects` table
-- Optional archive upload to the `project-archives` storage bucket
-- Project forking stored as a new Supabase row
+Optional overrides:
 
-## Main files
+```bash
+JLCPCB_API_BASE_URL=https://api.jlcpcb.com
+PCBWAY_API_BASE_URL=https://api-partner.pcbway.com/api
+STRIPE_PRICE_CURRENCY=usd
+```
 
-- `src/lib/supabase.js`
-- `src/services/projects.js`
-- `supabase/openpcb_schema.sql`
+## Important note on provider APIs
 
+The included JLCPCB and PCBWay functions are integration templates. Keep the secrets server-side only. Depending on the exact API scope approved for your vendor accounts, you may need to adjust request field names or auth headers to match your account.
 
 ## GitHub Pages notes
 
-This app is configured for GitHub Pages now:
-- Vite uses `base: './'`
-- Routing uses `HashRouter`
+This app uses:
 
-Set these repository secrets or environment variables before building:
+- `HashRouter`
+- `base: './'`
 
-```bash
-VITE_CLERK_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
-```
-
-If you deploy without the Clerk key, the app will show a config message instead of a blank page.
+That keeps routes working on GitHub Pages.
