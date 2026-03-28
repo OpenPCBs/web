@@ -7,10 +7,10 @@ function Footer() {
             <span className="brand-icon">◫</span>
             <div>
               <strong>OpenPCB</strong>
-              <span>Publish boards. Preview files. Quote fabrication.</span>
+              <span>Publish boards. Preview files. Collaborate faster.</span>
             </div>
           </div>
-          <p>OpenPCB is built for sharing real hardware files with enough structure for reuse, quoting, and manufacturing handoff.</p>
+          <p>OpenPCB is built for sharing real hardware files with enough structure for reuse, review, and manufacturing handoff.</p>
         </div>
         <div>
           <h4>Core workflow</h4>
@@ -22,12 +22,12 @@ function Footer() {
           </ul>
         </div>
         <div>
-          <h4>Integrations</h4>
+          <h4>Platform</h4>
           <ul>
             <li>Clerk authentication</li>
             <li>Supabase data and storage</li>
-            <li>JLCPCB and PCBWay quotes</li>
-            <li>Stripe checkout</li>
+            <li>Public project catalog</li>
+            <li>File preview experience</li>
           </ul>
         </div>
       </div>

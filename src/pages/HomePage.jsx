@@ -16,9 +16,9 @@ const features = [
     body: 'Gerber layers, KiCad text files, images, and PDFs can be inspected in-browser before they go live.',
   },
   {
-    eyebrow: 'Order',
-    title: 'Fabrication and checkout hooks are built in',
-    body: 'Project pages can request quotes from JLCPCB or PCBWay and start a Stripe checkout flow once your server functions are configured.',
+    eyebrow: 'Workflow',
+    title: 'Reuse-ready project handoff',
+    body: 'Project pages focus on complete documentation, downloadable assets, and clear collaboration paths for teams building on your design.',
   },
 ];
 
@@ -32,7 +32,7 @@ function HomePage({ projectCount, recentProjects, isSupabaseConfigured, projects
             <h1>OpenPCB</h1>
             <p className="hero-copy">
               Publish boards, share manufacturing files, preview uploads before they go live,
-              and hand projects off to fabrication without leaving the site.
+              and keep reusable hardware projects discoverable for your team and the community.
             </p>
             <div className="hero-actions">
               <Link to="/publish" className="button button-primary">Publish a project</Link>
@@ -74,8 +74,8 @@ function HomePage({ projectCount, recentProjects, isSupabaseConfigured, projects
         <div className="container stats-grid">
           <StatCard value={projectsLoading ? '…' : String(projectCount)} label="Public projects" />
           <StatCard value="Live previews" label="Upload inspection" />
-          <StatCard value="JLCPCB + PCBWay" label="Quote targets" />
-          <StatCard value="Stripe" label="Checkout layer" />
+          <StatCard value="Structured docs" label="Build handoff" />
+          <StatCard value="Team forks" label="Collaboration" />
         </div>
       </section>
 
@@ -86,7 +86,7 @@ function HomePage({ projectCount, recentProjects, isSupabaseConfigured, projects
             <h2>Built for files people actually want to manufacture</h2>
             <p>
               The goal is not just to host projects. It is to make design handoff, reuse,
-              and quoting feel like one workflow.
+              and collaboration feel like one workflow.
             </p>
           </div>
           <div className="feature-grid">
