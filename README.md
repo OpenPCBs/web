@@ -34,6 +34,39 @@ npm run dev
 3. Run `supabase/openpcb_schema.sql` in the Supabase SQL editor.
 4. Create or confirm the `project-archives` bucket.
 
+## Troubleshooting
+
+### Guest mode: `Could not find the table 'public.projects' in the schema cache`
+
+This means the connected Supabase project does not currently expose the `public.projects` table through the Data API.
+
+Fix it by:
+
+1. Opening the Supabase SQL editor for the same project used by `VITE_SUPABASE_URL`.
+2. Running `supabase/openpcb_schema.sql`.
+3. Running:
+
+```sql
+NOTIFY pgrst, 'reload schema';
+```
+
+4. Refreshing the app.
+
+### Logged in: `No suitable key or wrong key type`
+
+This usually means Supabase rejected the Clerk session token for this project.
+
+Check the following:
+
+1. The Clerk instance in your frontend matches the Clerk instance connected to Supabase.
+2. Supabase has Clerk enabled as a Third-Party Auth provider.
+3. `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` point to that same Supabase project.
+4. You are not mixing keys or project URLs from another environment.
+
+### Important behavior
+
+Public browsing should still work with the Supabase publishable key alone. Publishing and forking require the Clerk to Supabase auth connection to be configured correctly.
+
 ## GitHub Pages notes
 
 This app uses:
