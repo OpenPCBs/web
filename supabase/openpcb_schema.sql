@@ -112,3 +112,6 @@ using (
   bucket_id = 'project-archives'
   and split_part(name, '/', 1) = (auth.jwt()->>'sub')
 );
+
+-- Refresh PostgREST so the Data API can see new tables and policies immediately.
+NOTIFY pgrst, 'reload schema';

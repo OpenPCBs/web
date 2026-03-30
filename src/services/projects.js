@@ -1,4 +1,4 @@
-import { PROJECT_ARCHIVE_BUCKET } from '../lib/supabase';
+import { PROJECT_ARCHIVE_BUCKET, getSupabaseErrorMessage } from '../lib/supabase';
 import { createSlug, mapProjectRowToUiProject } from '../lib/projectMappers';
 
 function normalizeTags(tags) {
@@ -12,6 +12,10 @@ function normalizeTags(tags) {
     .filter(Boolean);
 }
 
+function throwFriendlySupabaseError(error, fallbackMessage) {
+  throw new Error(getSupabaseErrorMessage(error, { operation: fallbackMessage }));
+}
+
 export async function fetchProjects(supabase, currentUserId) {
   if (!supabase) {
     return [];
@@ -20,10 +24,11 @@ export async function fetchProjects(supabase, currentUserId) {
   const { data, error } = await supabase
     .from('projects')
     .select('*')
+    .eq('is_public', true)
     .order('updated_at', { ascending: false });
 
   if (error) {
-    throw error;
+    throwFriendlySupabaseError(error, 'Could not load projects from Supabase.');
   }
 
   return (data || []).map((row) => mapProjectRowToUiProject(row, supabase, currentUserId));
@@ -31,7 +36,9 @@ export async function fetchProjects(supabase, currentUserId) {
 
 export async function publishProject({ supabase, user, formState, archiveFile }) {
   if (!supabase) {
-    throw new Error('Supabase is not configured yet.');
+    throw new Error(
+      'Supabase auth is not ready yet. Refresh the page, then confirm Clerk is connected to Supabase before publishing.',
+    );
   }
 
   if (!user?.id) {
@@ -59,7 +66,7 @@ export async function publishProject({ supabase, user, formState, archiveFile })
       });
 
     if (uploadError) {
-      throw uploadError;
+      throwFriendlySupabaseError(uploadError, 'Could not upload the project archive.');
     }
   }
 
@@ -94,7 +101,7 @@ export async function publishProject({ supabase, user, formState, archiveFile })
     .single();
 
   if (error) {
-    throw error;
+    throwFriendlySupabaseError(error, 'Could not publish this project.');
   }
 
   return mapProjectRowToUiProject(data, supabase, user.id);
@@ -102,7 +109,9 @@ export async function publishProject({ supabase, user, formState, archiveFile })
 
 export async function forkProject({ supabase, user, project }) {
   if (!supabase) {
-    throw new Error('Supabase is not configured yet.');
+    throw new Error(
+      'Supabase auth is not ready yet. Refresh the page, then confirm Clerk is connected to Supabase before forking.',
+    );
   }
 
   if (!user?.id) {
@@ -134,7 +143,7 @@ export async function forkProject({ supabase, user, project }) {
     .single();
 
   if (error) {
-    throw error;
+    throwFriendlySupabaseError(error, 'Could not fork this project.');
   }
 
   return mapProjectRowToUiProject(data, supabase, user.id);
