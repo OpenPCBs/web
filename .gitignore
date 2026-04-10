@@ -1,3 +1,7 @@
 node_modules
 dist
-.env.local
+.env
+.env.*
+.pb_data
+server/node_modules
+server/.env
