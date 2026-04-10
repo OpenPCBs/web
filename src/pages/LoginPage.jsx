@@ -10,7 +10,7 @@ function LoginPage() {
         <div className="auth-card">
           <span className="eyebrow">Account</span>
           <h1>Access your OpenPCB workspace</h1>
-          <p>Use Clerk to sign in, publish projects, manage your dashboard, and start fabrication orders from your project pages.</p>
+          <p>Use Clerk to sign in, publish projects, manage your dashboard, and collaborate on reusable hardware projects.</p>
 
           <div className="form-actions stacked-actions auth-actions-block">
             <Show when="signed-out">

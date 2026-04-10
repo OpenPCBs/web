@@ -10,12 +10,17 @@ import PublishPage from './pages/PublishPage';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { isSupabaseConfigured, useSupabaseClient } from './lib/supabase';
+import {
+  isSupabaseConfigured,
+  useAuthenticatedSupabaseClient,
+  usePublicSupabaseClient,
+} from './lib/supabase';
 import { fetchProjects, forkProject, publishProject } from './services/projects';
 
 function App() {
   const { user } = useUser();
-  const supabase = useSupabaseClient();
+  const publicSupabase = usePublicSupabaseClient();
+  const authenticatedSupabase = useAuthenticatedSupabaseClient();
   const [remoteProjects, setRemoteProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState('');
@@ -24,7 +29,7 @@ function App() {
     let isMounted = true;
 
     async function loadProjects() {
-      if (!isSupabaseConfigured() || !supabase) {
+      if (!isSupabaseConfigured() || !publicSupabase) {
         if (isMounted) {
           setRemoteProjects([]);
           setProjectsLoading(false);
@@ -37,7 +42,7 @@ function App() {
       setProjectsError('');
 
       try {
-        const projects = await fetchProjects(supabase, user?.id);
+        const projects = await fetchProjects(publicSupabase, user?.id);
         if (isMounted) setRemoteProjects(projects);
       } catch (error) {
         if (isMounted) setProjectsError(error.message || 'Could not load projects from Supabase.');
@@ -50,22 +55,34 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, [supabase, user?.id]);
+  }, [publicSupabase, user?.id]);
 
   async function handlePublishProject(formState, archiveFile) {
-    const project = await publishProject({ supabase, user, formState, archiveFile });
+    const project = await publishProject({
+      supabase: authenticatedSupabase,
+      user,
+      formState,
+      archiveFile,
+    });
     setRemoteProjects((current) => [project, ...current]);
     return project;
   }
 
   async function handleForkProject(project) {
-    const clonedProject = await forkProject({ supabase, user, project });
+    const clonedProject = await forkProject({
+      supabase: authenticatedSupabase,
+      user,
+      project,
+    });
     setRemoteProjects((current) => [clonedProject, ...current]);
     return clonedProject;
   }
 
   const recentProjects = useMemo(() => remoteProjects.slice(0, 3), [remoteProjects]);
-  const userProjects = useMemo(() => remoteProjects.filter((project) => project.isUserProject), [remoteProjects]);
+  const userProjects = useMemo(
+    () => remoteProjects.filter((project) => project.isUserProject),
+    [remoteProjects],
+  );
 
   return (
     <div className="app-shell">
