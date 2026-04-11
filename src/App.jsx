@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { ClerkLoaded, Show, SignInButton, SignUpButton, UserButton, UserProfile, useAuth, useUser } from '@clerk/react';
+import { ClerkLoaded, Show, SignInButton, SignUpButton, UserButton, UserProfile, useAuth, useUser } from '@clerk/clerk-react';
 import { ArrowRight, ArrowUpRight, Boxes, Download, Files, GitFork, RefreshCw, ShieldCheck } from 'lucide-react';
 import JSZip from 'jszip';
 
