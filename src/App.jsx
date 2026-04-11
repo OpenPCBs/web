@@ -11,7 +11,7 @@ import {
   useAuth,
   useUser,
 } from '@clerk/clerk-react';
-import { ArrowRight, ArrowUpRight, Boxes, Download, Files, GitFork, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Download, Files, GitFork, ImageIcon, Layers3, Rocket } from 'lucide-react';
 import JSZip from 'jszip';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -195,22 +195,21 @@ function ProjectCard({ project }) {
 }
 
 function Navbar() {
-  const { user } = useUser();
-  const items = [{to:'/',label:'Home'},{to:'/explore',label:'Explore'},{to:'/publish',label:'Publish'},{to:'/dashboard',label:'Dashboard'},{to:'/login',label:'Account'}];
+  const items = [{to:'/',label:'Home'},{to:'/explore',label:'Explore'},{to:'/publish',label:'Upload'},{to:'/dashboard',label:'Dashboard'}];
   return (
     <header className="site-header">
       <div className="container nav-shell">
-        <Link to="/" className="brand-mark"><span className="brand-icon">◫</span><div><strong>OpenPCB</strong><span>Share real hardware files with less friction</span></div></Link>
+        <Link to="/" className="brand-mark">
+          <span className="brand-icon">◫</span>
+          <div><strong>OpenPCB</strong></div>
+        </Link>
         <nav className="nav-links">{items.map((item) => <NavLink key={item.to} to={item.to} className={({isActive}) => isActive ? 'nav-link nav-link-active' : 'nav-link'}>{item.label}</NavLink>)}</nav>
         <div className="nav-auth-area">
-          <div className="nav-user-chip"><SignedOut><span>Guest mode</span></SignedOut><SignedIn><span>{user?.fullName || user?.username || 'Signed in'}</span></SignedIn></div>
-          <div className="nav-auth-buttons">
-            <SignedOut>
-              <SignInButton mode="modal"><button className="button button-secondary">Sign in</button></SignInButton>
-              <SignUpButton mode="modal"><button className="button button-primary">Create account</button></SignUpButton>
-            </SignedOut>
-            <SignedIn><UserButton /></SignedIn>
-          </div>
+          <SignedOut>
+            <SignInButton mode="modal"><button className="button button-secondary">Sign in</button></SignInButton>
+            <SignUpButton mode="modal"><button className="button button-primary">Create account</button></SignUpButton>
+          </SignedOut>
+          <SignedIn><UserButton /></SignedIn>
         </div>
       </div>
     </header>
@@ -218,7 +217,18 @@ function Navbar() {
 }
 
 function Footer() {
-  return <footer className="site-footer"><div className="container footer-shell"><div><div className="brand-mark"><span className="brand-icon">◫</span><div><strong>OpenPCB</strong><span>Clerk for identity. PocketBase for cloud records and files.</span></div></div><p>Cleaner publishing, multi-file uploads, and browser Gerber rendering.</p></div></div></footer>;
+  return (
+    <footer className="site-footer">
+      <div className="container footer-shell">
+        <div>
+          <div className="brand-mark">
+            <span className="brand-icon">◫</span>
+            <div><strong>OpenPCB</strong><span>Upload project files, browse open boards, and reuse real hardware faster.</span></div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
 }
 
 function HomePage({ projects, loading }) {
@@ -228,25 +238,101 @@ function HomePage({ projects, loading }) {
       <section className="hero-section">
         <div className="container hero-grid">
           <div>
-            <div className="hero-badge">Open hardware, cleaned up</div>
-            <h1>Publish PCB work that is actually reusable.</h1>
-            <p className="hero-copy">OpenPCB now has a sleeker file flow: multiple uploads, Gerber zip rendering, and a cleaner path from discovery to reuse.</p>
-            <div className="hero-actions"><Link className="button button-primary" to="/publish">Publish a project</Link><Link className="button button-secondary" to="/explore">Browse public boards</Link></div>
-            {!API_BASE_URL ? <div className="status-banner status-banner-warning">Add <code>VITE_API_BASE_URL</code> and rebuild to load live data.</div> : null}
+            <div className="hero-badge">Open-source PCB sharing</div>
+            <h1>Upload board files. Explore open hardware. Reuse real designs.</h1>
+            <p className="hero-copy">OpenPCB is a cleaner front end for publishing PCB projects, previewing files, and discovering reusable board designs without surfacing backend internals to users.</p>
+            <div className="hero-actions">
+              <Link className="button button-primary" to="/publish">Upload a project</Link>
+              <Link className="button button-secondary" to="/explore">Browse open boards</Link>
+            </div>
+            {!API_BASE_URL ? <div className="status-banner status-banner-warning">Connect the frontend to your live data source to show public projects here.</div> : null}
           </div>
           <div className="hero-panel">
             <div className="hero-stat-grid">
-              <div className="stat-card"><span className="stat-label">Projects</span><strong>{loading ? '…' : projects.length}</strong></div>
+              <div className="stat-card"><span className="stat-label">Public boards</span><strong>{loading ? '…' : projects.length}</strong></div>
               <div className="stat-card"><span className="stat-label">Upload flow</span><strong>Multi-file</strong></div>
-              <div className="stat-card"><span className="stat-label">Gerber bundles</span><strong>Rendered</strong></div>
-              <div className="stat-card"><span className="stat-label">Auth</span><strong>Clerk</strong></div>
+              <div className="stat-card"><span className="stat-label">Preview support</span><strong>Gerber + ZIP</strong></div>
+              <div className="stat-card"><span className="stat-label">Best for</span><strong>Open hardware</strong></div>
             </div>
-            <div className="hero-diagram"><div className="hero-diagram-node">Clerk</div><div className="hero-diagram-node">API</div><div className="hero-diagram-node">PocketBase</div><div className="hero-diagram-node">File previews</div></div>
+            <div className="image-placeholder image-placeholder-hero">
+              <ImageIcon size={22} />
+              <div>
+                <strong>Hero image area</strong>
+                <p>Add a board render, workspace photo, or exploded PCB mockup here.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
-      <section className="section"><div className="container"><div className="section-heading"><span className="eyebrow">Why it feels better</span><h2>Cleaner flow, less UI clutter.</h2></div><div className="feature-grid"><article className="feature-card"><Files size={20} /><h3>File-first publishing</h3><p>Upload multiple files in one pass instead of forcing a single archive.</p></article><article className="feature-card"><Boxes size={20} /><h3>Gerber zip rendering</h3><p>Gerber and drill files inside a zip bundle are parsed together and rendered in-browser.</p></article><article className="feature-card"><ShieldCheck size={20} /><h3>Clerk stays in place</h3><p>Identity remains polished while writes move behind a small API so PocketBase can stay private.</p></article></div></div></section>
-      <section className="section section-soft"><div className="container"><div className="section-heading section-heading-inline"><div><span className="eyebrow">Recent projects</span><h2>Latest public uploads</h2></div><Link className="inline-action" to="/explore">See everything <ArrowRight size={16} /></Link></div>{loading ? <div className="empty-state">Loading public projects…</div> : recent.length ? <div className="project-grid">{recent.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">No public projects yet.</div>}</div></section>
+
+      <section className="section">
+        <div className="container">
+          <div className="section-heading">
+            <span className="eyebrow">Core flow</span>
+            <h2>Keep the homepage focused on what people can do.</h2>
+          </div>
+          <div className="feature-grid">
+            <article className="feature-card"><Files size={20} /><h3>Upload project files</h3><p>Share schematics, layouts, Gerbers, PDFs, renders, and documentation in one place.</p></article>
+            <article className="feature-card"><Layers3 size={20} /><h3>Browse open boards</h3><p>Search public projects by title, tool, category, author, or tags and jump into the files fast.</p></article>
+            <article className="feature-card"><Rocket size={20} /><h3>Fork and build faster</h3><p>Reuse existing hardware work as a starting point instead of rebuilding projects from scratch.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section className="section section-tight">
+        <div className="container">
+          <div className="ad-slot ad-slot-banner">
+            <span className="eyebrow">Optional sponsor area</span>
+            <h3>Add one wide ad or sponsor banner here.</h3>
+            <p>This placement sits between major content sections, so it stays visible without interrupting uploads or project browsing.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="section section-soft">
+        <div className="container">
+          <div className="section-heading">
+            <span className="eyebrow">Visual section</span>
+            <h2>Use background imagery to make the site feel more like hardware.</h2>
+            <p className="hero-copy">This section is a good place for full-width board photography, PCB macro shots, assembly scenes, or a collage of featured projects.</p>
+          </div>
+          <div className="background-image-panel">
+            <div className="background-image-panel-inner">
+              <ImageIcon size={22} />
+              <div>
+                <strong>Background image section</strong>
+                <p>Drop in one strong background image or layer multiple featured board renders here.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <div className="section-heading section-heading-inline">
+            <div>
+              <span className="eyebrow">Recent projects</span>
+              <h2>Latest public uploads</h2>
+            </div>
+            <Link className="inline-action" to="/explore">See everything <ArrowRight size={16} /></Link>
+          </div>
+          {loading ? <div className="empty-state">Loading public projects…</div> : recent.length ? <div className="project-grid">{recent.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">No public projects yet.</div>}
+        </div>
+      </section>
+
+      <section className="section section-tight">
+        <div className="container sponsor-grid">
+          <div className="ad-slot">
+            <span className="eyebrow">Optional partner slot</span>
+            <p>Add a compact sponsor card for tools, fabs, or component partners.</p>
+          </div>
+          <div className="ad-slot">
+            <span className="eyebrow">Optional partner slot</span>
+            <p>Use this for a second sponsor or a house ad for featured projects or premium listings.</p>
+          </div>
+        </div>
+      </section>
     </>
   );
 }
@@ -258,7 +344,7 @@ function ExplorePage({ projects, loading, error }) {
     const haystack = [project.title, project.summary, project.authorName, ...(project.tags || []), project.category].join(' ').toLowerCase();
     return haystack.includes(query.trim().toLowerCase()) && (toolFilter === 'All' || project.tool === toolFilter);
   }), [projects, query, toolFilter]);
-  return <section className="section"><div className="container"><div className="section-heading"><span className="eyebrow">Explore</span><h1>Search public PCB projects</h1><p className="hero-copy">The browsing flow is flatter now: search, filter, and jump straight into the project page.</p></div><div className="filters-shell"><label className="field"><span>Search</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by title, summary, author, or tag" /></label><label className="field"><span>Tool</span><select value={toolFilter} onChange={(e) => setToolFilter(e.target.value)}><option>All</option><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label></div>{error ? <div className="status-banner status-banner-error">{error}</div> : null}{loading ? <div className="empty-state">Loading public projects…</div> : filtered.length ? <div className="project-grid">{filtered.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">No projects match that search yet.</div>}</div></section>;
+  return <section className="section"><div className="container"><div className="section-heading"><span className="eyebrow">Explore</span><h1>Search public PCB projects</h1><p className="hero-copy">Search, filter, and jump straight into project pages and downloadable files.</p></div><div className="filters-shell"><label className="field"><span>Search</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by title, summary, author, or tag" /></label><label className="field"><span>Tool</span><select value={toolFilter} onChange={(e) => setToolFilter(e.target.value)}><option>All</option><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label></div>{error ? <div className="status-banner status-banner-error">{error}</div> : null}{loading ? <div className="empty-state">Loading public projects…</div> : filtered.length ? <div className="project-grid">{filtered.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">No projects match that search yet.</div>}</div></section>;
 }
 
 function PublishPage({ refreshProjects }) {
@@ -291,7 +377,7 @@ function PublishPage({ refreshProjects }) {
       setMessage('Project published. Redirecting to your dashboard…'); await refreshProjects(); setTimeout(() => navigate('/dashboard'), 700);
     } catch (error) { setMessage(error.message || 'Could not publish this project.'); } finally { setSaving(false); }
   }
-  return <section className="section"><div className="container publish-layout"><div><div className="section-heading"><span className="eyebrow">Publish</span><h1>Ship a cleaner project page.</h1><p className="hero-copy">Upload multiple files, including Gerber zip bundles. If a zip contains Gerber and drill layers, OpenPCB renders the bundle before you publish it.</p></div>{previews.length ? <div className="hero-surface"><div className="preview-tab-row">{previews.map((preview, index) => <button key={`${preview.name}-${index}`} className={index === previewIndex ? 'preview-tab preview-tab-active' : 'preview-tab'} onClick={() => setPreviewIndex(index)}>{preview.name}</button>)}</div><FilePreview preview={previews[previewIndex]} /></div> : <div className="empty-state">Select one or more files to see previews before publishing.</div>}</div><div><SignedOut><div className="hero-surface"><h3>Sign in first</h3><p>You need a Clerk session to publish and own a project.</p><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn><form className="publish-form" onSubmit={onSubmit}><div className="form-grid"><label className="field"><span>Project title</span><input required name="title" value={formState.title} onChange={onChange} /></label><label className="field"><span>Author name</span><input required name="authorName" value={formState.authorName} onChange={onChange} /></label><label className="field"><span>EDA tool</span><select name="tool" value={formState.tool} onChange={onChange}><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label><label className="field"><span>License</span><select name="license" value={formState.license} onChange={onChange}><option>CERN-OHL-S</option><option>CERN-OHL-W</option><option>MIT</option><option>Apache-2.0</option><option>GPL-3.0</option></select></label></div><label className="field"><span>Short summary</span><textarea required name="summary" value={formState.summary} onChange={onChange} rows="3" /></label><label className="field"><span>Detailed description</span><textarea name="description" value={formState.description} onChange={onChange} rows="5" /></label><div className="form-grid"><label className="field"><span>Tags</span><input name="tags" value={formState.tags} onChange={onChange} placeholder="RFID, audio, Linux SBC" /></label><label className="field"><span>Category</span><input name="category" value={formState.category} onChange={onChange} placeholder="RF, Audio, Power" /></label></div><label className="field"><span>Files</span><input type="file" multiple accept=".zip,.gbr,.gtl,.gbl,.gto,.gbo,.gko,.gm1,.gml,.pho,.art,.cmp,.sol,.drl,.xln,.txt,.kicad_pcb,.kicad_sch,.sch,.pcbdoc,.prjpcb,.pdf,.png,.jpg,.jpeg,.webp,.svg" onChange={onFileChange} /></label><label className="toggle-row"><div><strong>Publish publicly</strong><p>Public projects appear in Explore immediately.</p></div><input type="checkbox" name="isPublic" checked={formState.isPublic} onChange={onChange} /></label><div className="status-inline"><span>{selectedFiles.length} file{selectedFiles.length === 1 ? '' : 's'} selected</span><span>{totalSizeLabel}</span></div>{message ? <div className={message.includes('published') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}<button className="button button-primary" type="submit" disabled={saving || !API_BASE_URL}>{saving ? 'Publishing…' : 'Publish project'}</button></form></SignedIn></div></div></section>;
+  return <section className="section"><div className="container publish-layout"><div><div className="section-heading"><span className="eyebrow">Upload</span><h1>Publish a hardware project.</h1><p className="hero-copy">Upload multiple files, including Gerber ZIP bundles. OpenPCB renders supported files before you publish them.</p></div>{previews.length ? <div className="hero-surface"><div className="preview-tab-row">{previews.map((preview, index) => <button key={`${preview.name}-${index}`} className={index === previewIndex ? 'preview-tab preview-tab-active' : 'preview-tab'} onClick={() => setPreviewIndex(index)}>{preview.name}</button>)}</div><FilePreview preview={previews[previewIndex]} /></div> : <div className="empty-state">Select one or more files to see previews before publishing.</div>}</div><div><SignedOut><div className="hero-surface"><h3>Sign in first</h3><p>You need an account to publish and own a project.</p><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn><form className="publish-form" onSubmit={onSubmit}><div className="form-grid"><label className="field"><span>Project title</span><input required name="title" value={formState.title} onChange={onChange} /></label><label className="field"><span>Author name</span><input required name="authorName" value={formState.authorName} onChange={onChange} /></label><label className="field"><span>EDA tool</span><select name="tool" value={formState.tool} onChange={onChange}><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label><label className="field"><span>License</span><select name="license" value={formState.license} onChange={onChange}><option>CERN-OHL-S</option><option>CERN-OHL-W</option><option>MIT</option><option>Apache-2.0</option><option>GPL-3.0</option></select></label></div><label className="field"><span>Short summary</span><textarea required name="summary" value={formState.summary} onChange={onChange} rows="3" /></label><label className="field"><span>Detailed description</span><textarea name="description" value={formState.description} onChange={onChange} rows="5" /></label><div className="form-grid"><label className="field"><span>Tags</span><input name="tags" value={formState.tags} onChange={onChange} placeholder="RFID, audio, Linux SBC" /></label><label className="field"><span>Category</span><input name="category" value={formState.category} onChange={onChange} placeholder="RF, Audio, Power" /></label></div><label className="field"><span>Files</span><input type="file" multiple accept=".zip,.gbr,.gtl,.gbl,.gto,.gbo,.gko,.gm1,.gml,.pho,.art,.cmp,.sol,.drl,.xln,.txt,.kicad_pcb,.kicad_sch,.sch,.pcbdoc,.prjpcb,.pdf,.png,.jpg,.jpeg,.webp,.svg" onChange={onFileChange} /></label><label className="toggle-row"><div><strong>Publish publicly</strong><p>Public projects appear in Explore immediately.</p></div><input type="checkbox" name="isPublic" checked={formState.isPublic} onChange={onChange} /></label><div className="status-inline"><span>{selectedFiles.length} file{selectedFiles.length === 1 ? '' : 's'} selected</span><span>{totalSizeLabel}</span></div>{message ? <div className={message.includes('published') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}<button className="button button-primary" type="submit" disabled={saving || !API_BASE_URL}>{saving ? 'Publishing…' : 'Publish project'}</button></form></SignedIn></div></div></section>;
 }
 
 function ProjectPage({ refreshProjects }) {
@@ -328,11 +414,11 @@ function ProjectPage({ refreshProjects }) {
 }
 
 function DashboardPage({ projects, loading, error }) {
-  return <section className="section"><div className="container"><div className="section-heading section-heading-inline"><div><span className="eyebrow">Dashboard</span><h1>Your projects</h1><p className="hero-copy">Everything you have published or forked lives here.</p></div><Link className="button button-primary" to="/publish">Publish another project</Link></div><SignedOut><div className="hero-surface"><h3>Sign in to view your dashboard</h3><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn>{error ? <div className="status-banner status-banner-error">{error}</div> : null}{loading ? <div className="empty-state">Loading your projects…</div> : projects.length ? <div className="project-grid">{projects.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">You have not published anything yet.</div>}</SignedIn></div></section>;
+  return <section className="section"><div className="container"><div className="section-heading section-heading-inline"><div><span className="eyebrow">Dashboard</span><h1>Your projects</h1><p className="hero-copy">Everything you have published or forked lives here.</p></div><Link className="button button-primary" to="/publish">Upload another project</Link></div><SignedOut><div className="hero-surface"><h3>Sign in to view your dashboard</h3><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn>{error ? <div className="status-banner status-banner-error">{error}</div> : null}{loading ? <div className="empty-state">Loading your projects…</div> : projects.length ? <div className="project-grid">{projects.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">You have not published anything yet.</div>}</SignedIn></div></section>;
 }
 
 function LoginPage() {
-  return <section className="section"><div className="container"><SignedOut><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Sign in to publish or fork</h1><p className="hero-copy">Clerk still powers the login flow. All data writes happen through the backend API after sign-in.</p></div><SignInButton mode="modal"><button className="button button-primary">Sign in with Clerk</button></SignInButton></div></SignedOut><SignedIn><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Manage your profile</h1></div><UserProfile /></div></SignedIn></div></section>;
+  return <section className="section"><div className="container"><SignedOut><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Sign in to publish, fork, and manage projects</h1><p className="hero-copy">Use your account to upload boards, save work, and manage your projects.</p></div><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Manage your profile</h1></div><UserProfile /></div></SignedIn></div></section>;
 }
 
 export default function App() {

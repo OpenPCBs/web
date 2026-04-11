@@ -11,10 +11,8 @@ function ConfigErrorScreen() {
   return (
     <div className="config-shell">
       <div className="config-card">
-        <h1>OpenPCB needs environment variables to start</h1>
-        <pre>{`VITE_CLERK_PUBLISHABLE_KEY=pk_...
-VITE_API_BASE_URL=https://your-api.example.com
-VITE_POCKETBASE_URL=https://your-pocketbase.example.com`}</pre>
+        <h1>OpenPCB needs configuration to start</h1>
+        <p className="hero-copy">Add the required frontend configuration values, rebuild the site, and reload the page.</p>
       </div>
     </div>
   );
