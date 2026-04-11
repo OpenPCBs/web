@@ -8,11 +8,12 @@ import { clerkMiddleware, getAuth, clerkClient } from '@clerk/express';
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { files: 20, fileSize: 50 * 1024 * 1024 } });
 const pb = new PocketBase(process.env.POCKETBASE_URL);
-const { PORT = 8080, FRONTEND_ORIGIN = '*', POCKETBASE_ADMIN_EMAIL, POCKETBASE_ADMIN_PASSWORD } = process.env;
+const { PORT = 8080, FRONTEND_ORIGIN = '*', POCKETBASE_URL, POCKETBASE_ADMIN_EMAIL, POCKETBASE_ADMIN_PASSWORD } = process.env;
+const allowedOrigins = FRONTEND_ORIGIN === '*' ? [] : FRONTEND_ORIGIN.split(',').map((item) => item.trim()).filter(Boolean);
 
-app.use(cors({ origin: FRONTEND_ORIGIN === '*' ? true : FRONTEND_ORIGIN.split(',').map((item) => item.trim()), credentials: true }));
+app.use(cors({ origin: FRONTEND_ORIGIN === '*' ? true : allowedOrigins, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
-app.use(clerkMiddleware());
+app.use(clerkMiddleware(allowedOrigins.length ? { authorizedParties: allowedOrigins } : {}));
 
 async function ensurePocketBaseAdmin() {
   if (pb.authStore.isValid) return;
@@ -43,7 +44,14 @@ function mapProjectRecord(record) {
   const archiveNames = Array.isArray(record.archives) ? record.archives : [];
   const files = archiveNames.map((filename, index) => {
     const meta = fileMeta[index] || {};
-    return { id: `${record.id}-${index}`, name: meta.originalName || filename, mimeType: meta.mimeType || 'application/octet-stream', size: Number(meta.size || 0), sizeLabel: formatBytes(Number(meta.size || 0)), url: pb.files.getURL(record, filename) };
+    return {
+      id: `${record.id}-${index}`,
+      name: meta.originalName || filename,
+      mimeType: meta.mimeType || 'application/octet-stream',
+      size: Number(meta.size || 0),
+      sizeLabel: formatBytes(Number(meta.size || 0)),
+      url: pb.files.getURL(record, filename),
+    };
   });
   return {
     id: record.id,
@@ -67,7 +75,7 @@ function mapProjectRecord(record) {
 }
 
 async function requireSignedInUser(req) {
-  const auth = getAuth(req);
+  const auth = getAuth(req, { acceptsToken: 'session_token' });
   if (!auth?.isAuthenticated || !auth.userId) {
     const error = new Error('You must be signed in.');
     error.statusCode = 401;
@@ -81,7 +89,19 @@ async function requireSignedInUser(req) {
   };
 }
 
-async function getAllProjects() {
+async function getPublicProjectsViaPocketBase() {
+  const response = await fetch(`${POCKETBASE_URL}/api/collections/projects/records?perPage=200&sort=-updated`);
+  const payload = await response.json();
+  if (!response.ok) {
+    const error = new Error(payload?.message || 'Could not fetch public projects from PocketBase.');
+    error.statusCode = response.status;
+    error.details = payload;
+    throw error;
+  }
+  return payload?.items || [];
+}
+
+async function getAllProjectsAsAdmin() {
   await ensurePocketBaseAdmin();
   return pb.collection('projects').getFullList({ sort: '-updated' });
 }
@@ -97,7 +117,7 @@ app.get('/health', async (_req, res, next) => {
 
 app.get('/api/projects', async (_req, res, next) => {
   try {
-    const records = await getAllProjects();
+    const records = await getPublicProjectsViaPocketBase();
     const publicRecords = records.filter((record) => Boolean(record.isPublic));
     res.json(publicRecords.map(mapProjectRecord));
   } catch (error) {
@@ -107,7 +127,7 @@ app.get('/api/projects', async (_req, res, next) => {
 
 app.get('/api/projects/:slug', async (req, res, next) => {
   try {
-    const records = await getAllProjects();
+    const records = await getPublicProjectsViaPocketBase();
     const record = records.find((item) => item.slug === req.params.slug);
     if (!record) return res.status(404).json({ message: 'Project not found.' });
     res.json(mapProjectRecord(record));
@@ -119,7 +139,7 @@ app.get('/api/projects/:slug', async (req, res, next) => {
 app.get('/api/users/me/projects', async (req, res, next) => {
   try {
     const user = await requireSignedInUser(req);
-    const records = await getAllProjects();
+    const records = await getAllProjectsAsAdmin();
     const mine = records.filter((record) => record.ownerClerkId === user.clerkId);
     res.json(mine.map(mapProjectRecord));
   } catch (error) {
@@ -188,7 +208,10 @@ app.post('/api/projects/:id/fork', async (req, res, next) => {
 
 app.use((error, _req, res, _next) => {
   console.error(error);
-  res.status(error.statusCode || 500).json({ message: error.message || 'Internal server error.' });
+  res.status(error.statusCode || 500).json({
+    message: error.message || 'Internal server error.',
+    details: error.details || error.originalError?.data || null,
+  });
 });
 
 app.listen(PORT, () => console.log(`OpenPCB API listening on :${PORT}`));
