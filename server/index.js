@@ -16,7 +16,7 @@ app.use(clerkMiddleware());
 
 async function ensurePocketBaseAdmin() {
   if (pb.authStore.isValid) return;
-  await pb.admins.authWithPassword(POCKETBASE_ADMIN_EMAIL, POCKETBASE_ADMIN_PASSWORD);
+  await pb.collection('_superusers').authWithPassword(POCKETBASE_ADMIN_EMAIL, POCKETBASE_ADMIN_PASSWORD);
 }
 
 function createSlug(text = '') {
@@ -66,7 +66,7 @@ app.get('/api/projects', async (_req, res, next) => {
 app.get('/api/projects/:slug', async (req, res, next) => {
   try {
     await ensurePocketBaseAdmin();
-    const records = await pb.collection('projects').getFullList({ filter: `slug = "${req.params.slug}"`, sort: '-updated' });
+    const records = await pb.collection('projects').getFullList({ filter: `slug = \"${req.params.slug}\"`, sort: '-updated' });
     const record = records[0];
     if (!record) return res.status(404).json({ message: 'Project not found.' });
     res.json(mapProjectRecord(record));
@@ -77,7 +77,7 @@ app.get('/api/users/me/projects', async (req, res, next) => {
   try {
     const user = await requireSignedInUser(req);
     await ensurePocketBaseAdmin();
-    const records = await pb.collection('projects').getFullList({ sort: '-updated', filter: `ownerClerkId = "${user.clerkId}"` });
+    const records = await pb.collection('projects').getFullList({ sort: '-updated', filter: `ownerClerkId = \"${user.clerkId}\"` });
     res.json(records.map(mapProjectRecord));
   } catch (error) { next(error); }
 });
