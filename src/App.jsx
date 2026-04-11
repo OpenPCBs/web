@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { ClerkLoaded, Show, SignInButton, SignUpButton, UserButton, UserProfile, useAuth, useUser } from '@clerk/clerk-react';
-import { ArrowRight, ArrowUpRight, Boxes, Download, Files, GitFork, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+  ClerkLoaded,
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+  UserProfile,
+  useAuth,
+  useUser,
+} from '@clerk/clerk-react';
+import { ArrowRight, ArrowUpRight, Boxes, Download, Files, GitFork, ShieldCheck } from 'lucide-react';
 import JSZip from 'jszip';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -44,7 +54,6 @@ function createGerberRenderData(text, isDrill = false) {
   const apertureMap = new Map();
   let currentAperture = '10', currentX = 0, currentY = 0;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line) continue;
@@ -52,16 +61,15 @@ function createGerberRenderData(text, isDrill = false) {
     if (apertureDef) { apertureMap.set(apertureDef[1], { shape: apertureDef[2], size: Number(apertureDef[3] || 1500) }); continue; }
     const selectAperture = line.match(/^D(\d+)\*$/);
     if (selectAperture && Number(selectAperture[1]) >= 10) { currentAperture = selectAperture[1]; continue; }
-
     if (isDrill) {
       const drill = line.match(/^X(-?\d+)Y(-?\d+)/);
       if (drill) {
         const x = Number(drill[1]), y = Number(drill[2]);
-        drills.push({ x, y, r: 1200 }); minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+        drills.push({ x, y, r: 1200 });
+        minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
       }
       continue;
     }
-
     const draw = line.match(/^(?:G0[123])?X(-?\d+)Y(-?\d+)(?:D0([123]))?\*$/);
     if (!draw) continue;
     const x = Number(draw[1]), y = Number(draw[2]), op = draw[3] || '1';
@@ -71,7 +79,6 @@ function createGerberRenderData(text, isDrill = false) {
     else if (op === '3') { flashes.push({ x, y, r: aperture.size || 1500, shape: aperture.shape || 'C' }); currentX = x; currentY = y; }
     minX = Math.min(minX, x, currentX); minY = Math.min(minY, y, currentY); maxX = Math.max(maxX, x, currentX); maxY = Math.max(maxY, y, currentY);
   }
-
   if (!Number.isFinite(minX)) { minX = 0; minY = 0; maxX = 100000; maxY = 100000; }
   return { bounds: { minX, minY, maxX, maxY }, commands, flashes, drills };
 }
@@ -95,7 +102,6 @@ async function buildFilePreview(file) {
   const isPdf = file.type === 'application/pdf' || extension === 'pdf';
   const base = { name: file.name, sizeLabel: bytesToLabel(file.size), kind: extension || 'file' };
   if (isImage || isPdf) return { ...base, kind: isImage ? 'image' : 'pdf', objectUrl: URL.createObjectURL(file) };
-
   if (extension === 'zip') {
     const zip = await JSZip.loadAsync(file);
     const entries = Object.values(zip.files).filter((entry) => !entry.dir);
@@ -118,7 +124,6 @@ async function buildFilePreview(file) {
     }
     return { ...base, kind: 'zip', text: entries.map((entry) => entry.name).join('\n'), notes: [`${entries.length} files in bundle`, 'No Gerber or drill layers detected'] };
   }
-
   const text = await file.text();
   if (GERBER_EXTENSIONS.includes(extension) || (DRILL_EXTENSIONS.includes(extension) && isDrillName(file.name))) {
     return { ...base, kind: GERBER_EXTENSIONS.includes(extension) ? 'gerber' : 'drill', render: createGerberRenderData(text, !GERBER_EXTENSIONS.includes(extension)), text };
@@ -198,13 +203,13 @@ function Navbar() {
         <Link to="/" className="brand-mark"><span className="brand-icon">◫</span><div><strong>OpenPCB</strong><span>Share real hardware files with less friction</span></div></Link>
         <nav className="nav-links">{items.map((item) => <NavLink key={item.to} to={item.to} className={({isActive}) => isActive ? 'nav-link nav-link-active' : 'nav-link'}>{item.label}</NavLink>)}</nav>
         <div className="nav-auth-area">
-          <div className="nav-user-chip"><Show when="signed-out"><span>Guest mode</span></Show><Show when="signed-in"><span>{user?.fullName || user?.username || 'Signed in'}</span></Show></div>
+          <div className="nav-user-chip"><SignedOut><span>Guest mode</span></SignedOut><SignedIn><span>{user?.fullName || user?.username || 'Signed in'}</span></SignedIn></div>
           <div className="nav-auth-buttons">
-            <Show when="signed-out">
+            <SignedOut>
               <SignInButton mode="modal"><button className="button button-secondary">Sign in</button></SignInButton>
               <SignUpButton mode="modal"><button className="button button-primary">Create account</button></SignUpButton>
-            </Show>
-            <Show when="signed-in"><UserButton /></Show>
+            </SignedOut>
+            <SignedIn><UserButton /></SignedIn>
           </div>
         </div>
       </div>
@@ -240,9 +245,7 @@ function HomePage({ projects, loading }) {
           </div>
         </div>
       </section>
-
       <section className="section"><div className="container"><div className="section-heading"><span className="eyebrow">Why it feels better</span><h2>Cleaner flow, less UI clutter.</h2></div><div className="feature-grid"><article className="feature-card"><Files size={20} /><h3>File-first publishing</h3><p>Upload multiple files in one pass instead of forcing a single archive.</p></article><article className="feature-card"><Boxes size={20} /><h3>Gerber zip rendering</h3><p>Gerber and drill files inside a zip bundle are parsed together and rendered in-browser.</p></article><article className="feature-card"><ShieldCheck size={20} /><h3>Clerk stays in place</h3><p>Identity remains polished while writes move behind a small API so PocketBase can stay private.</p></article></div></div></section>
-
       <section className="section section-soft"><div className="container"><div className="section-heading section-heading-inline"><div><span className="eyebrow">Recent projects</span><h2>Latest public uploads</h2></div><Link className="inline-action" to="/explore">See everything <ArrowRight size={16} /></Link></div>{loading ? <div className="empty-state">Loading public projects…</div> : recent.length ? <div className="project-grid">{recent.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">No public projects yet.</div>}</div></section>
     </>
   );
@@ -255,7 +258,6 @@ function ExplorePage({ projects, loading, error }) {
     const haystack = [project.title, project.summary, project.authorName, ...(project.tags || []), project.category].join(' ').toLowerCase();
     return haystack.includes(query.trim().toLowerCase()) && (toolFilter === 'All' || project.tool === toolFilter);
   }), [projects, query, toolFilter]);
-
   return <section className="section"><div className="container"><div className="section-heading"><span className="eyebrow">Explore</span><h1>Search public PCB projects</h1><p className="hero-copy">The browsing flow is flatter now: search, filter, and jump straight into the project page.</p></div><div className="filters-shell"><label className="field"><span>Search</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by title, summary, author, or tag" /></label><label className="field"><span>Tool</span><select value={toolFilter} onChange={(e) => setToolFilter(e.target.value)}><option>All</option><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label></div>{error ? <div className="status-banner status-banner-error">{error}</div> : null}{loading ? <div className="empty-state">Loading public projects…</div> : filtered.length ? <div className="project-grid">{filtered.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">No projects match that search yet.</div>}</div></section>;
 }
 
@@ -269,57 +271,27 @@ function PublishPage({ refreshProjects }) {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-
   useEffect(() => { setFormState((current) => ({ ...current, authorName: user?.fullName || user?.username || user?.primaryEmailAddress?.emailAddress || current.authorName })); }, [user]);
-
   const totalSizeLabel = useMemo(() => {
     const bytes = selectedFiles.reduce((sum, file) => sum + file.size, 0);
     if (!bytes) return 'No files selected';
     return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB total` : `${(bytes / (1024 * 1024)).toFixed(1)} MB total`;
   }, [selectedFiles]);
-
-  function onChange(event) {
-    const { name, value, type, checked } = event.target;
-    setFormState((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
-  }
-
+  function onChange(event) { const { name, value, type, checked } = event.target; setFormState((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value })); }
   async function onFileChange(event) {
-    const files = Array.from(event.target.files || []);
-    setSelectedFiles(files);
-    setMessage('');
-    const nextPreviews = [];
-    for (const file of files) nextPreviews.push(await buildFilePreview(file));
-    setPreviews(nextPreviews);
-    setPreviewIndex(0);
+    const files = Array.from(event.target.files || []); setSelectedFiles(files); setMessage('');
+    const nextPreviews = []; for (const file of files) nextPreviews.push(await buildFilePreview(file)); setPreviews(nextPreviews); setPreviewIndex(0);
   }
-
   async function onSubmit(event) {
-    event.preventDefault();
-    setSaving(true); setMessage('');
+    event.preventDefault(); setSaving(true); setMessage('');
     try {
-      const token = await getToken();
-      if (!token) throw new Error('You must be signed in to publish a project.');
-      await request('/api/projects', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: (() => {
-          const formData = new FormData();
-          formData.append('payload', JSON.stringify({ ...formState, tags: parseTags(formState.tags) }));
-          selectedFiles.forEach((file) => formData.append('files', file));
-          return formData;
-        })(),
-      });
-      setMessage('Project published. Redirecting to your dashboard…');
-      await refreshProjects();
-      setTimeout(() => navigate('/dashboard'), 700);
-    } catch (error) {
-      setMessage(error.message || 'Could not publish this project.');
-    } finally {
-      setSaving(false);
-    }
+      const token = await getToken(); if (!token) throw new Error('You must be signed in to publish a project.');
+      const formData = new FormData(); formData.append('payload', JSON.stringify({ ...formState, tags: parseTags(formState.tags) })); selectedFiles.forEach((file) => formData.append('files', file));
+      await request('/api/projects', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
+      setMessage('Project published. Redirecting to your dashboard…'); await refreshProjects(); setTimeout(() => navigate('/dashboard'), 700);
+    } catch (error) { setMessage(error.message || 'Could not publish this project.'); } finally { setSaving(false); }
   }
-
-  return <section className="section"><div className="container publish-layout"><div><div className="section-heading"><span className="eyebrow">Publish</span><h1>Ship a cleaner project page.</h1><p className="hero-copy">Upload multiple files, including Gerber zip bundles. If a zip contains Gerber and drill layers, OpenPCB renders the bundle before you publish it.</p></div>{previews.length ? <div className="hero-surface"><div className="preview-tab-row">{previews.map((preview, index) => <button key={`${preview.name}-${index}`} className={index === previewIndex ? 'preview-tab preview-tab-active' : 'preview-tab'} onClick={() => setPreviewIndex(index)}>{preview.name}</button>)}</div><FilePreview preview={previews[previewIndex]} /></div> : <div className="empty-state">Select one or more files to see previews before publishing.</div>}</div><div><Show when="signed-out"><div className="hero-surface"><h3>Sign in first</h3><p>You need a Clerk session to publish and own a project.</p><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></Show><Show when="signed-in"><form className="publish-form" onSubmit={onSubmit}><div className="form-grid"><label className="field"><span>Project title</span><input required name="title" value={formState.title} onChange={onChange} /></label><label className="field"><span>Author name</span><input required name="authorName" value={formState.authorName} onChange={onChange} /></label><label className="field"><span>EDA tool</span><select name="tool" value={formState.tool} onChange={onChange}><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label><label className="field"><span>License</span><select name="license" value={formState.license} onChange={onChange}><option>CERN-OHL-S</option><option>CERN-OHL-W</option><option>MIT</option><option>Apache-2.0</option><option>GPL-3.0</option></select></label></div><label className="field"><span>Short summary</span><textarea required name="summary" value={formState.summary} onChange={onChange} rows="3" /></label><label className="field"><span>Detailed description</span><textarea name="description" value={formState.description} onChange={onChange} rows="5" /></label><div className="form-grid"><label className="field"><span>Tags</span><input name="tags" value={formState.tags} onChange={onChange} placeholder="RFID, audio, Linux SBC" /></label><label className="field"><span>Category</span><input name="category" value={formState.category} onChange={onChange} placeholder="RF, Audio, Power" /></label></div><label className="field"><span>Files</span><input type="file" multiple accept=".zip,.gbr,.gtl,.gbl,.gto,.gbo,.gko,.gm1,.gml,.pho,.art,.cmp,.sol,.drl,.xln,.txt,.kicad_pcb,.kicad_sch,.sch,.pcbdoc,.prjpcb,.pdf,.png,.jpg,.jpeg,.webp,.svg" onChange={onFileChange} /></label><label className="toggle-row"><div><strong>Publish publicly</strong><p>Public projects appear in Explore immediately.</p></div><input type="checkbox" name="isPublic" checked={formState.isPublic} onChange={onChange} /></label><div className="status-inline"><span>{selectedFiles.length} file{selectedFiles.length === 1 ? '' : 's'} selected</span><span>{totalSizeLabel}</span></div>{message ? <div className={message.includes('published') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}<button className="button button-primary" type="submit" disabled={saving || !API_BASE_URL}>{saving ? 'Publishing…' : 'Publish project'}</button></form></Show></div></div></section>;
+  return <section className="section"><div className="container publish-layout"><div><div className="section-heading"><span className="eyebrow">Publish</span><h1>Ship a cleaner project page.</h1><p className="hero-copy">Upload multiple files, including Gerber zip bundles. If a zip contains Gerber and drill layers, OpenPCB renders the bundle before you publish it.</p></div>{previews.length ? <div className="hero-surface"><div className="preview-tab-row">{previews.map((preview, index) => <button key={`${preview.name}-${index}`} className={index === previewIndex ? 'preview-tab preview-tab-active' : 'preview-tab'} onClick={() => setPreviewIndex(index)}>{preview.name}</button>)}</div><FilePreview preview={previews[previewIndex]} /></div> : <div className="empty-state">Select one or more files to see previews before publishing.</div>}</div><div><SignedOut><div className="hero-surface"><h3>Sign in first</h3><p>You need a Clerk session to publish and own a project.</p><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn><form className="publish-form" onSubmit={onSubmit}><div className="form-grid"><label className="field"><span>Project title</span><input required name="title" value={formState.title} onChange={onChange} /></label><label className="field"><span>Author name</span><input required name="authorName" value={formState.authorName} onChange={onChange} /></label><label className="field"><span>EDA tool</span><select name="tool" value={formState.tool} onChange={onChange}><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label><label className="field"><span>License</span><select name="license" value={formState.license} onChange={onChange}><option>CERN-OHL-S</option><option>CERN-OHL-W</option><option>MIT</option><option>Apache-2.0</option><option>GPL-3.0</option></select></label></div><label className="field"><span>Short summary</span><textarea required name="summary" value={formState.summary} onChange={onChange} rows="3" /></label><label className="field"><span>Detailed description</span><textarea name="description" value={formState.description} onChange={onChange} rows="5" /></label><div className="form-grid"><label className="field"><span>Tags</span><input name="tags" value={formState.tags} onChange={onChange} placeholder="RFID, audio, Linux SBC" /></label><label className="field"><span>Category</span><input name="category" value={formState.category} onChange={onChange} placeholder="RF, Audio, Power" /></label></div><label className="field"><span>Files</span><input type="file" multiple accept=".zip,.gbr,.gtl,.gbl,.gto,.gbo,.gko,.gm1,.gml,.pho,.art,.cmp,.sol,.drl,.xln,.txt,.kicad_pcb,.kicad_sch,.sch,.pcbdoc,.prjpcb,.pdf,.png,.jpg,.jpeg,.webp,.svg" onChange={onFileChange} /></label><label className="toggle-row"><div><strong>Publish publicly</strong><p>Public projects appear in Explore immediately.</p></div><input type="checkbox" name="isPublic" checked={formState.isPublic} onChange={onChange} /></label><div className="status-inline"><span>{selectedFiles.length} file{selectedFiles.length === 1 ? '' : 's'} selected</span><span>{totalSizeLabel}</span></div>{message ? <div className={message.includes('published') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}<button className="button button-primary" type="submit" disabled={saving || !API_BASE_URL}>{saving ? 'Publishing…' : 'Publish project'}</button></form></SignedIn></div></div></section>;
 }
 
 function ProjectPage({ refreshProjects }) {
@@ -331,50 +303,36 @@ function ProjectPage({ refreshProjects }) {
   const [selectedFileId, setSelectedFileId] = useState('');
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
-
   useEffect(() => {
     let active = true;
     request(`/api/projects/${encodeURIComponent(projectId)}`).then(async (nextProject) => {
-      if (!active) return;
-      setProject(nextProject);
+      if (!active) return; setProject(nextProject);
       const firstFile = nextProject.files?.[0];
-      if (firstFile) {
-        setSelectedFileId(firstFile.id);
-        try { if (active) setPreview(await buildPreviewFromRemoteFile(firstFile)); } catch {}
-      }
+      if (firstFile) { setSelectedFileId(firstFile.id); try { if (active) setPreview(await buildPreviewFromRemoteFile(firstFile)); } catch {} }
     }).catch((error) => active && setMessage(error.message || 'Could not load the project.')).finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [projectId]);
-
   async function handleFork() {
     setMessage('');
     try {
-      const token = await getToken();
-      if (!token) throw new Error('You must be signed in to fork this project.');
+      const token = await getToken(); if (!token) throw new Error('You must be signed in to fork this project.');
       const forked = await request(`/api/projects/${encodeURIComponent(project.id)}/fork`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-      setMessage(`Forked to your dashboard as "${forked.title}".`);
-      await refreshProjects();
+      setMessage(`Forked to your dashboard as "${forked.title}".`); await refreshProjects();
     } catch (error) { setMessage(error.message || 'Could not fork this project.'); }
   }
-
-  async function selectFile(file) {
-    setSelectedFileId(file.id);
-    try { setPreview(await buildPreviewFromRemoteFile(file)); } catch { setPreview(null); }
-  }
-
+  async function selectFile(file) { setSelectedFileId(file.id); try { setPreview(await buildPreviewFromRemoteFile(file)); } catch { setPreview(null); } }
   if (loading) return <section className="section"><div className="container"><div className="empty-state">Loading project…</div></div></section>;
   if (!project) return <section className="section"><div className="container"><div className="status-banner status-banner-error">{message || 'Project not found.'}</div></div></section>;
   const isOwner = Boolean(user?.id && project.ownerClerkId === user.id);
-
-  return <section className="section"><div className="container project-layout"><div><div className="hero-surface"><div className="project-hero-top"><div><div className="hero-badge">{project.category || 'General'}</div><h1>{project.title}</h1><p className="hero-copy">{project.description || project.summary}</p></div><div className="project-meta-box"><span className="chip chip-muted">{project.tool}</span><span className="chip chip-muted">{project.license}</span></div></div><div className="meta-grid"><div><span className="meta-label">Author</span><strong>{project.authorName || 'OpenPCB creator'}</strong></div><div><span className="meta-label">Updated</span><strong>{formatDate(project.updated)}</strong></div><div><span className="meta-label">Files</span><strong>{project.files?.length || 0}</strong></div></div><div className="tag-row">{(project.tags || []).map((tag) => <span key={tag} className="chip chip-soft">{tag}</span>)}</div><div className="button-row"><Show when="signed-in">{!isOwner ? <button className="button button-primary" onClick={handleFork}><GitFork size={16} />Fork project</button> : <Link className="button button-secondary" to="/dashboard">Go to dashboard</Link>}</Show><Show when="signed-out"><SignInButton mode="modal"><button className="button button-primary">Sign in to fork</button></SignInButton></Show></div>{message ? <div className={message.includes('Forked') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}</div>{preview ? <FilePreview preview={preview} /> : null}</div><aside className="sidebar-card"><h3>Project files</h3><div className="field">{project.files?.map((file) => <button key={file.id} className={selectedFileId === file.id ? 'file-row file-row-active' : 'file-row'} onClick={() => selectFile(file)}><span>{file.name}</span><span>{file.sizeLabel}</span></button>)}</div><div className="field">{project.files?.map((file) => <a key={`download-${file.id}`} className="download-link" href={file.url} target="_blank" rel="noreferrer"><Download size={14} />Download {file.name}</a>)}</div></aside></div></section>;
+  return <section className="section"><div className="container project-layout"><div><div className="hero-surface"><div className="project-hero-top"><div><div className="hero-badge">{project.category || 'General'}</div><h1>{project.title}</h1><p className="hero-copy">{project.description || project.summary}</p></div><div className="project-meta-box"><span className="chip chip-muted">{project.tool}</span><span className="chip chip-muted">{project.license}</span></div></div><div className="meta-grid"><div><span className="meta-label">Author</span><strong>{project.authorName || 'OpenPCB creator'}</strong></div><div><span className="meta-label">Updated</span><strong>{formatDate(project.updated)}</strong></div><div><span className="meta-label">Files</span><strong>{project.files?.length || 0}</strong></div></div><div className="tag-row">{(project.tags || []).map((tag) => <span key={tag} className="chip chip-soft">{tag}</span>)}</div><div className="button-row"><SignedIn>{!isOwner ? <button className="button button-primary" onClick={handleFork}><GitFork size={16} />Fork project</button> : <Link className="button button-secondary" to="/dashboard">Go to dashboard</Link>}</SignedIn><SignedOut><SignInButton mode="modal"><button className="button button-primary">Sign in to fork</button></SignInButton></SignedOut></div>{message ? <div className={message.includes('Forked') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}</div>{preview ? <FilePreview preview={preview} /> : null}</div><aside className="sidebar-card"><h3>Project files</h3><div className="field">{project.files?.map((file) => <button key={file.id} className={selectedFileId === file.id ? 'file-row file-row-active' : 'file-row'} onClick={() => selectFile(file)}><span>{file.name}</span><span>{file.sizeLabel}</span></button>)}</div><div className="field">{project.files?.map((file) => <a key={`download-${file.id}`} className="download-link" href={file.url} target="_blank" rel="noreferrer"><Download size={14} />Download {file.name}</a>)}</div></aside></div></section>;
 }
 
 function DashboardPage({ projects, loading, error }) {
-  return <section className="section"><div className="container"><div className="section-heading section-heading-inline"><div><span className="eyebrow">Dashboard</span><h1>Your projects</h1><p className="hero-copy">Everything you have published or forked lives here.</p></div><Link className="button button-primary" to="/publish">Publish another project</Link></div><Show when="signed-out"><div className="hero-surface"><h3>Sign in to view your dashboard</h3><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></Show><Show when="signed-in">{error ? <div className="status-banner status-banner-error">{error}</div> : null}{loading ? <div className="empty-state">Loading your projects…</div> : projects.length ? <div className="project-grid">{projects.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">You have not published anything yet.</div>}</Show></div></section>;
+  return <section className="section"><div className="container"><div className="section-heading section-heading-inline"><div><span className="eyebrow">Dashboard</span><h1>Your projects</h1><p className="hero-copy">Everything you have published or forked lives here.</p></div><Link className="button button-primary" to="/publish">Publish another project</Link></div><SignedOut><div className="hero-surface"><h3>Sign in to view your dashboard</h3><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn>{error ? <div className="status-banner status-banner-error">{error}</div> : null}{loading ? <div className="empty-state">Loading your projects…</div> : projects.length ? <div className="project-grid">{projects.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">You have not published anything yet.</div>}</SignedIn></div></section>;
 }
 
 function LoginPage() {
-  return <section className="section"><div className="container"><Show when="signed-out"><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Sign in to publish or fork</h1><p className="hero-copy">Clerk still powers the login flow. All data writes happen through the backend API after sign-in.</p></div><SignInButton mode="modal"><button className="button button-primary">Sign in with Clerk</button></SignInButton></div></Show><Show when="signed-in"><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Manage your profile</h1></div><UserProfile /></div></Show></div></section>;
+  return <section className="section"><div className="container"><SignedOut><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Sign in to publish or fork</h1><p className="hero-copy">Clerk still powers the login flow. All data writes happen through the backend API after sign-in.</p></div><SignInButton mode="modal"><button className="button button-primary">Sign in with Clerk</button></SignInButton></div></SignedOut><SignedIn><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Manage your profile</h1></div><UserProfile /></div></SignedIn></div></section>;
 }
 
 export default function App() {
@@ -385,30 +343,15 @@ export default function App() {
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [projectsError, setProjectsError] = useState('');
-
   async function refreshProjects() {
-    if (!API_BASE_URL) {
-      setProjects([]); setUserProjects([]); setProjectsLoading(false); setDashboardLoading(false);
-      return;
-    }
-
-    setProjectsLoading(true);
-    setProjectsError('');
-    try { setProjects(await request('/api/projects')); }
-    catch (error) { setProjectsError(error.message || 'Could not load projects.'); setProjects([]); }
-    finally { setProjectsLoading(false); }
-
+    if (!API_BASE_URL) { setProjects([]); setUserProjects([]); setProjectsLoading(false); setDashboardLoading(false); return; }
+    setProjectsLoading(true); setProjectsError('');
+    try { setProjects(await request('/api/projects')); } catch (error) { setProjectsError(error.message || 'Could not load projects.'); setProjects([]); } finally { setProjectsLoading(false); }
     if (!user?.id) { setUserProjects([]); setDashboardLoading(false); return; }
     setDashboardLoading(true);
-    try {
-      const token = await getToken();
-      setUserProjects(token ? await request('/api/users/me/projects', { headers: { Authorization: `Bearer ${token}` } }) : []);
-    } catch { setUserProjects([]); }
-    finally { setDashboardLoading(false); }
+    try { const token = await getToken(); setUserProjects(token ? await request('/api/users/me/projects', { headers: { Authorization: `Bearer ${token}` } }) : []); } catch { setUserProjects([]); } finally { setDashboardLoading(false); }
   }
-
   useEffect(() => { refreshProjects(); }, [user?.id]);
-
   return (
     <ClerkLoaded>
       <div className="app-shell">
