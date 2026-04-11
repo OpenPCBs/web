@@ -45,41 +45,86 @@ function mapProjectRecord(record) {
     const meta = fileMeta[index] || {};
     return { id: `${record.id}-${index}`, name: meta.originalName || filename, mimeType: meta.mimeType || 'application/octet-stream', size: Number(meta.size || 0), sizeLabel: formatBytes(Number(meta.size || 0)), url: pb.files.getURL(record, filename) };
   });
-  return { id: record.id, slug: record.slug, title: record.title, authorName: record.authorName, ownerClerkId: record.ownerClerkId, ownerEmail: record.ownerEmail, summary: record.summary, description: record.description, tool: record.tool, license: record.license, tags: Array.isArray(tags) ? tags : [], category: record.category, isPublic: Boolean(record.isPublic), forkedFrom: record.forkedFrom || null, files, created: record.created, updated: record.updated };
+  return {
+    id: record.id,
+    slug: record.slug,
+    title: record.title,
+    authorName: record.authorName,
+    ownerClerkId: record.ownerClerkId,
+    ownerEmail: record.ownerEmail,
+    summary: record.summary,
+    description: record.description,
+    tool: record.tool,
+    license: record.license,
+    tags: Array.isArray(tags) ? tags : [],
+    category: record.category,
+    isPublic: Boolean(record.isPublic),
+    forkedFrom: record.forkedFrom || null,
+    files,
+    created: record.created,
+    updated: record.updated,
+  };
 }
 
 async function requireSignedInUser(req) {
   const auth = getAuth(req);
-  if (!auth?.isAuthenticated || !auth.userId) { const error = new Error('You must be signed in.'); error.statusCode = 401; throw error; }
+  if (!auth?.isAuthenticated || !auth.userId) {
+    const error = new Error('You must be signed in.');
+    error.statusCode = 401;
+    throw error;
+  }
   const user = await clerkClient.users.getUser(auth.userId);
-  return { clerkId: auth.userId, email: user.primaryEmailAddress?.emailAddress || '', name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'OpenPCB user' };
+  return {
+    clerkId: auth.userId,
+    email: user.primaryEmailAddress?.emailAddress || '',
+    name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'OpenPCB user',
+  };
 }
+
+async function getAllProjects() {
+  await ensurePocketBaseAdmin();
+  return pb.collection('projects').getFullList({ sort: '-updated' });
+}
+
+app.get('/health', async (_req, res, next) => {
+  try {
+    await ensurePocketBaseAdmin();
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.get('/api/projects', async (_req, res, next) => {
   try {
-    await ensurePocketBaseAdmin();
-    const records = await pb.collection('projects').getFullList({ sort: '-updated', filter: 'isPublic = true' });
-    res.json(records.map(mapProjectRecord));
-  } catch (error) { next(error); }
+    const records = await getAllProjects();
+    const publicRecords = records.filter((record) => Boolean(record.isPublic));
+    res.json(publicRecords.map(mapProjectRecord));
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/api/projects/:slug', async (req, res, next) => {
   try {
-    await ensurePocketBaseAdmin();
-    const records = await pb.collection('projects').getFullList({ filter: `slug = \"${req.params.slug}\"`, sort: '-updated' });
-    const record = records[0];
+    const records = await getAllProjects();
+    const record = records.find((item) => item.slug === req.params.slug);
     if (!record) return res.status(404).json({ message: 'Project not found.' });
     res.json(mapProjectRecord(record));
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/api/users/me/projects', async (req, res, next) => {
   try {
     const user = await requireSignedInUser(req);
-    await ensurePocketBaseAdmin();
-    const records = await pb.collection('projects').getFullList({ sort: '-updated', filter: `ownerClerkId = \"${user.clerkId}\"` });
-    res.json(records.map(mapProjectRecord));
-  } catch (error) { next(error); }
+    const records = await getAllProjects();
+    const mine = records.filter((record) => record.ownerClerkId === user.clerkId);
+    res.json(mine.map(mapProjectRecord));
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post('/api/projects', upload.array('files', 20), async (req, res, next) => {
@@ -108,7 +153,9 @@ app.post('/api/projects', upload.array('files', 20), async (req, res, next) => {
     formData.append('fileMeta', JSON.stringify(fileMeta));
     const created = await pb.collection('projects').create(formData);
     res.status(201).json(mapProjectRecord(created));
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post('/api/projects/:id/fork', async (req, res, next) => {
@@ -134,7 +181,9 @@ app.post('/api/projects/:id/fork', async (req, res, next) => {
       archives: [],
     });
     res.status(201).json(mapProjectRecord(cloned));
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.use((error, _req, res, _next) => {
