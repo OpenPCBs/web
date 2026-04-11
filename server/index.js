@@ -90,7 +90,7 @@ async function requireSignedInUser(req) {
 }
 
 async function getPublicProjectsViaPocketBase() {
-  const response = await fetch(`${POCKETBASE_URL}/api/collections/projects/records?perPage=200&sort=-updated`);
+  const response = await fetch(`${POCKETBASE_URL}/api/collections/projects/records?perPage=200`);
   const payload = await response.json();
   if (!response.ok) {
     const error = new Error(payload?.message || 'Could not fetch public projects from PocketBase.');
@@ -103,7 +103,15 @@ async function getPublicProjectsViaPocketBase() {
 
 async function getAllProjectsAsAdmin() {
   await ensurePocketBaseAdmin();
-  return pb.collection('projects').getFullList({ sort: '-updated' });
+  return pb.collection('projects').getFullList();
+}
+
+function sortNewestFirst(records) {
+  return [...records].sort((a, b) => {
+    const aTime = new Date(a.updated || a.created || 0).getTime();
+    const bTime = new Date(b.updated || b.created || 0).getTime();
+    return bTime - aTime;
+  });
 }
 
 app.get('/health', async (_req, res, next) => {
@@ -118,7 +126,7 @@ app.get('/health', async (_req, res, next) => {
 app.get('/api/projects', async (_req, res, next) => {
   try {
     const records = await getPublicProjectsViaPocketBase();
-    const publicRecords = records.filter((record) => Boolean(record.isPublic));
+    const publicRecords = sortNewestFirst(records.filter((record) => Boolean(record.isPublic)));
     res.json(publicRecords.map(mapProjectRecord));
   } catch (error) {
     next(error);
@@ -140,7 +148,7 @@ app.get('/api/users/me/projects', async (req, res, next) => {
   try {
     const user = await requireSignedInUser(req);
     const records = await getAllProjectsAsAdmin();
-    const mine = records.filter((record) => record.ownerClerkId === user.clerkId);
+    const mine = sortNewestFirst(records.filter((record) => record.ownerClerkId === user.clerkId));
     res.json(mine.map(mapProjectRecord));
   } catch (error) {
     next(error);
