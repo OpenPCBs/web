@@ -102,11 +102,66 @@ function getPrimaryGerberFile(files = []) {
   return files.find((file) => inferFileGroup(file) === 'gerber_zip') || files.find((file) => fileExt(file.name) === 'zip') || files[0] || null;
 }
 
-function createGerberRenderData(text, isDrill = false) {
+function isOutlineLayerName(name = '') {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.gko') || lower.endsWith('.gm1') || lower.endsWith('.gml') || lower.includes('outline') || lower.includes('edge') || lower.includes('profile') || lower.includes('cuts');
+}
+
+function parseGerberFormatLine(line) {
+  const match = line.match(/%FS([LT])A?X(\d)(\d)Y(\d)(\d)\*%/i);
+  if (!match) return null;
+  return {
+    zeroOmission: match[1].toUpperCase(),
+    xInteger: Number(match[2]),
+    xDecimal: Number(match[3]),
+    yInteger: Number(match[4]),
+    yDecimal: Number(match[5]),
+  };
+}
+
+function parseGerberUnitsLine(line) {
+  const match = line.match(/%MO(IN|MM)\*%/i);
+  return match ? match[1].toUpperCase() : null;
+}
+
+function parseDrillUnitsLine(line) {
+  const upper = line.toUpperCase();
+  if (upper.includes('M72') || upper.includes('INCH')) return 'IN';
+  if (upper.includes('M71') || upper.includes('METRIC')) return 'MM';
+  return null;
+}
+
+function coordinateScale(units) {
+  return units === 'IN' ? 25.4 : 1;
+}
+
+function parseFormattedCoordinate(rawValue, integerDigits, decimalDigits, zeroOmission = 'L') {
+  if (rawValue == null) return 0;
+  const sign = rawValue.startsWith('-') ? -1 : 1;
+  const digitsOnly = rawValue.replace(/^[+-]/, '');
+  const expectedLength = integerDigits + decimalDigits;
+  let padded = digitsOnly;
+  if (digitsOnly.length < expectedLength) {
+    padded = zeroOmission === 'T' ? digitsOnly.padEnd(expectedLength, '0') : digitsOnly.padStart(expectedLength, '0');
+  }
+  const numeric = Number(padded || '0') / (10 ** decimalDigits);
+  return sign * numeric;
+}
+
+function parseApertureSize(rawValue, units) {
+  if (!rawValue) return 0.22;
+  const first = String(rawValue).split('X')[0];
+  const numeric = Number(first || 0);
+  if (!Number.isFinite(numeric)) return 0.22;
+  return numeric * coordinateScale(units);
+}
+
+function createGerberRenderData(text, isDrill = false, layerName = '') {
   const commands = [];
   const flashes = [];
   const drills = [];
   const apertureMap = new Map();
+  const outlineLayer = isOutlineLayerName(layerName);
   let currentAperture = '10';
   let currentX = 0;
   let currentY = 0;
@@ -114,26 +169,36 @@ function createGerberRenderData(text, isDrill = false) {
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
+  let units = 'MM';
+  let format = { zeroOmission: 'L', xInteger: 2, xDecimal: 4, yInteger: 2, yDecimal: 4 };
 
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line) continue;
-    const apertureDef = line.match(/%ADD(\d+)([A-Z]),?([0-9.]+)?/);
-    if (apertureDef) {
-      apertureMap.set(apertureDef[1], { shape: apertureDef[2], size: Number(apertureDef[3] || 1500) });
+
+    const fs = parseGerberFormatLine(line);
+    if (fs) {
+      format = fs;
       continue;
     }
-    const selectAperture = line.match(/^D(\d+)\*$/);
-    if (selectAperture && Number(selectAperture[1]) >= 10) {
-      currentAperture = selectAperture[1];
+
+    const mo = parseGerberUnitsLine(line);
+    if (mo) {
+      units = mo;
       continue;
     }
+
     if (isDrill) {
+      const drillUnits = parseDrillUnitsLine(line);
+      if (drillUnits) {
+        units = drillUnits;
+        continue;
+      }
       const drill = line.match(/^X(-?\d+)Y(-?\d+)/);
       if (drill) {
-        const x = Number(drill[1]);
-        const y = Number(drill[2]);
-        drills.push({ x, y, r: 1200 });
+        const x = parseFormattedCoordinate(drill[1], format.xInteger, format.xDecimal, format.zeroOmission) * coordinateScale(units);
+        const y = parseFormattedCoordinate(drill[2], format.yInteger, format.yDecimal, format.zeroOmission) * coordinateScale(units);
+        drills.push({ x, y, r: 0.35 });
         minX = Math.min(minX, x);
         minY = Math.min(minY, y);
         maxX = Math.max(maxX, x);
@@ -141,24 +206,40 @@ function createGerberRenderData(text, isDrill = false) {
       }
       continue;
     }
+
+    const apertureDef = line.match(/%ADD(\d+)([A-Z]),?([0-9.Xx+-]+)?/i);
+    if (apertureDef) {
+      apertureMap.set(apertureDef[1], { shape: apertureDef[2], size: parseApertureSize(apertureDef[3], units) });
+      continue;
+    }
+
+    const selectAperture = line.match(/^D(\d+)\*$/);
+    if (selectAperture && Number(selectAperture[1]) >= 10) {
+      currentAperture = selectAperture[1];
+      continue;
+    }
+
     const draw = line.match(/^(?:G0[123])?X(-?\d+)Y(-?\d+)(?:D0([123]))?\*$/);
     if (!draw) continue;
-    const x = Number(draw[1]);
-    const y = Number(draw[2]);
+
+    const x = parseFormattedCoordinate(draw[1], format.xInteger, format.xDecimal, format.zeroOmission) * coordinateScale(units);
+    const y = parseFormattedCoordinate(draw[2], format.yInteger, format.yDecimal, format.zeroOmission) * coordinateScale(units);
     const op = draw[3] || '1';
-    const aperture = apertureMap.get(currentAperture) || { size: 1500, shape: 'C' };
+    const aperture = apertureMap.get(currentAperture) || { size: 0.22, shape: 'C' };
+
     if (op === '2') {
       currentX = x;
       currentY = y;
     } else if (op === '1') {
-      commands.push({ x1: currentX, y1: currentY, x2: x, y2: y, width: aperture.size || 1500 });
+      commands.push({ x1: currentX, y1: currentY, x2: x, y2: y, width: aperture.size || 0.22 });
       currentX = x;
       currentY = y;
     } else if (op === '3') {
-      flashes.push({ x, y, r: aperture.size || 1500, shape: aperture.shape || 'C' });
+      flashes.push({ x, y, r: aperture.size || 0.22, shape: aperture.shape || 'C' });
       currentX = x;
       currentY = y;
     }
+
     minX = Math.min(minX, x, currentX);
     minY = Math.min(minY, y, currentY);
     maxX = Math.max(maxX, x, currentX);
@@ -168,15 +249,33 @@ function createGerberRenderData(text, isDrill = false) {
   if (!Number.isFinite(minX)) {
     minX = 0;
     minY = 0;
-    maxX = 100000;
-    maxY = 100000;
+    maxX = 100;
+    maxY = 100;
   }
 
-  return { bounds: { minX, minY, maxX, maxY }, commands, flashes, drills };
+  const bounds = { minX, minY, maxX, maxY };
+  return {
+    bounds,
+    boardBounds: outlineLayer ? bounds : null,
+    commands,
+    flashes,
+    drills,
+    units: 'MM',
+  };
 }
 
 function mergeRenderData(items) {
-  const merged = { bounds: { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }, commands: [], flashes: [], drills: [] };
+  const merged = {
+    bounds: { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
+    boardBounds: { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
+    commands: [],
+    flashes: [],
+    drills: [],
+    units: 'MM',
+  };
+
+  let hasOutlineBounds = false;
+
   for (const item of items) {
     merged.commands.push(...item.commands);
     merged.flashes.push(...item.flashes);
@@ -185,10 +284,28 @@ function mergeRenderData(items) {
     merged.bounds.minY = Math.min(merged.bounds.minY, item.bounds.minY);
     merged.bounds.maxX = Math.max(merged.bounds.maxX, item.bounds.maxX);
     merged.bounds.maxY = Math.max(merged.bounds.maxY, item.bounds.maxY);
+
+    if (item.boardBounds) {
+      hasOutlineBounds = true;
+      merged.boardBounds.minX = Math.min(merged.boardBounds.minX, item.boardBounds.minX);
+      merged.boardBounds.minY = Math.min(merged.boardBounds.minY, item.boardBounds.minY);
+      merged.boardBounds.maxX = Math.max(merged.boardBounds.maxX, item.boardBounds.maxX);
+      merged.boardBounds.maxY = Math.max(merged.boardBounds.maxY, item.boardBounds.maxY);
+    }
   }
+
   if (!Number.isFinite(merged.bounds.minX)) {
-    merged.bounds = { minX: 0, minY: 0, maxX: 100000, maxY: 100000 };
+    merged.bounds = { minX: 0, minY: 0, maxX: 100, maxY: 100 };
   }
+
+  if (!hasOutlineBounds || !Number.isFinite(merged.boardBounds.minX)) {
+    merged.boardBounds = { ...merged.bounds };
+  }
+
+  const boardWidthMm = Math.max(merged.boardBounds.maxX - merged.boardBounds.minX, 0);
+  const boardHeightMm = Math.max(merged.boardBounds.maxY - merged.boardBounds.minY, 0);
+  merged.sizeLabel = `${boardWidthMm.toFixed(2)} mm × ${boardHeightMm.toFixed(2)} mm`;
+
   return merged;
 }
 
@@ -197,7 +314,8 @@ function buildBoardTexture(renderData, width = 2048, height = 1400) {
   offscreen.width = width;
   offscreen.height = height;
   const ctx = offscreen.getContext('2d');
-  const { minX, minY, maxX, maxY } = renderData.bounds;
+  const sourceBounds = renderData.boardBounds || renderData.bounds;
+  const { minX, minY, maxX, maxY } = sourceBounds;
   const spanX = Math.max(maxX - minX, 1);
   const spanY = Math.max(maxY - minY, 1);
   const padding = 56;
@@ -217,7 +335,7 @@ function buildBoardTexture(renderData, width = 2048, height = 1400) {
   ctx.lineJoin = 'round';
 
   for (const command of renderData.commands) {
-    ctx.lineWidth = Math.max(command.width / 1000, 1.4 / scale);
+    ctx.lineWidth = Math.max(command.width, 0.08);
     ctx.beginPath();
     ctx.moveTo(command.x1, command.y1);
     ctx.lineTo(command.x2, command.y2);
@@ -226,7 +344,7 @@ function buildBoardTexture(renderData, width = 2048, height = 1400) {
 
   ctx.fillStyle = '#ead790';
   for (const flash of renderData.flashes) {
-    const radius = Math.max(flash.r / 2000, 1.3 / scale);
+    const radius = Math.max(flash.r / 2, 0.08);
     ctx.beginPath();
     ctx.arc(flash.x, flash.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -234,7 +352,7 @@ function buildBoardTexture(renderData, width = 2048, height = 1400) {
 
   ctx.fillStyle = '#0b1120';
   for (const drill of renderData.drills.slice(0, 1200)) {
-    const radius = Math.max(drill.r / 2200, 1 / scale);
+    const radius = Math.max(drill.r / 2, 0.08);
     ctx.beginPath();
     ctx.arc(drill.x, drill.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -276,7 +394,17 @@ function mountBoardViewer(canvas, renderData, { interactive = true } = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf1f6fc);
 
-  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+  const bounds = renderData.boardBounds || renderData.bounds;
+  const spanX = Math.max(bounds.maxX - bounds.minX, 1);
+  const spanY = Math.max(bounds.maxY - bounds.minY, 1);
+  const worldScale = 0.06;
+  const boardWidth = Math.max(spanX * worldScale, 1.2);
+  const boardHeight = Math.max(spanY * worldScale, 1.2);
+  const boardLongest = Math.max(boardWidth, boardHeight);
+  const thickness = Math.max(boardLongest * 0.02, 0.12);
+  const radius = Math.min(boardWidth, boardHeight) * 0.08;
+
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, Math.max(boardLongest * 80, 400));
   camera.up.set(0, 0, 1);
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
@@ -287,14 +415,6 @@ function mountBoardViewer(canvas, renderData, { interactive = true } = {}) {
   const group = new THREE.Group();
   scene.add(group);
 
-  const spanX = Math.max(renderData.bounds.maxX - renderData.bounds.minX, 1);
-  const spanY = Math.max(renderData.bounds.maxY - renderData.bounds.minY, 1);
-  const aspect = spanX / spanY;
-  const boardLongest = 6.4;
-  const boardWidth = aspect >= 1 ? boardLongest : boardLongest * aspect;
-  const boardHeight = aspect >= 1 ? boardLongest / aspect : boardLongest;
-  const thickness = 0.14;
-  const radius = Math.min(boardWidth, boardHeight) * 0.08;
   const shape = createRoundedRectShape(boardWidth, boardHeight, radius);
 
   const boardGeometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 28, steps: 1 });
@@ -319,16 +439,17 @@ function mountBoardViewer(canvas, renderData, { interactive = true } = {}) {
   bottomGeometry.translate(0, 0, -thickness / 2 - 0.001);
   const bottomMaterial = new THREE.MeshStandardMaterial({ color: 0x0e5f44, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide });
   const bottomMesh = new THREE.Mesh(bottomGeometry, bottomMaterial);
+  bottomMesh.rotateY(Math.PI);
   group.add(bottomMesh);
 
   const drillMaterial = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.2 });
   const drillScale = Math.min(boardWidth / spanX, boardHeight / spanY);
-  const minX = renderData.bounds.minX;
-  const minY = renderData.bounds.minY;
+  const minX = bounds.minX;
+  const minY = bounds.minY;
   for (const drill of renderData.drills.slice(0, 650)) {
     const localX = ((drill.x - minX) / spanX - 0.5) * boardWidth;
     const localY = ((drill.y - minY) / spanY - 0.5) * boardHeight;
-    const radiusValue = Math.max((drill.r / 2200) * drillScale, 0.018);
+    const radiusValue = Math.max((drill.r / 2) * drillScale, 0.02);
     const geo = new THREE.CylinderGeometry(radiusValue, radiusValue, thickness + 0.04, 16);
     geo.rotateX(Math.PI / 2);
     const hole = new THREE.Mesh(geo, drillMaterial);
@@ -338,10 +459,10 @@ function mountBoardViewer(canvas, renderData, { interactive = true } = {}) {
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0xc8d8e8, 1.25));
   const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-  mainLight.position.set(6, -7, 8);
+  mainLight.position.set(boardLongest * 0.9, -boardLongest * 1.1, boardLongest * 1.2);
   scene.add(mainLight);
   const fillLight = new THREE.DirectionalLight(0xbcd7ff, 0.7);
-  fillLight.position.set(-6, 5, 4);
+  fillLight.position.set(-boardLongest * 0.9, boardLongest * 0.8, boardLongest * 0.6);
   scene.add(fillLight);
 
   const controls = interactive ? new OrbitControls(camera, canvas) : null;
@@ -349,14 +470,15 @@ function mountBoardViewer(canvas, renderData, { interactive = true } = {}) {
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.target.set(0, 0, 0);
-    controls.minDistance = Math.max(boardWidth, boardHeight) * 0.95;
-    controls.maxDistance = Math.max(boardWidth, boardHeight) * 4.5;
+    controls.minDistance = boardLongest * 0.7;
+    controls.maxDistance = boardLongest * 6;
     controls.screenSpacePanning = false;
     controls.enablePan = true;
-    controls.maxPolarAngle = Math.PI / 2.02;
+    controls.minPolarAngle = 0.02;
+    controls.maxPolarAngle = Math.PI - 0.02;
   }
 
-  camera.position.set(boardWidth * 0.72, -boardHeight * 1.22, Math.max(boardWidth, boardHeight) * 1.15);
+  camera.position.set(boardWidth * 0.8, -boardHeight * 1.35, boardLongest * 0.95);
   camera.lookAt(0, 0, 0);
 
   const renderScene = () => {
@@ -389,6 +511,7 @@ function mountBoardViewer(canvas, renderData, { interactive = true } = {}) {
 
   resize();
   if (interactive) tick();
+  else renderScene();
 
   return () => {
     if (frameId) cancelAnimationFrame(frameId);
@@ -441,12 +564,13 @@ async function buildFilePreview(file, groupHint) {
       }
     }
     if (layers.length) {
+      const merged = mergeRenderData(layers.map((layer) => createGerberRenderData(layer.text, layer.isDrill, layer.name)));
       return {
         ...base,
         kind: 'zip-gerber',
         layers: layers.map((layer) => layer.name),
-        render: mergeRenderData(layers.map((layer) => createGerberRenderData(layer.text, layer.isDrill))),
-        notes: [`${entries.length} files in bundle`, `${layers.length} renderable layers detected`, 'Interactive 3D preview'],
+        render: merged,
+        notes: [`${entries.length} files in bundle`, `${layers.length} renderable layers detected`, merged.sizeLabel, 'Interactive 3D preview'],
       };
     }
     return {
@@ -459,7 +583,8 @@ async function buildFilePreview(file, groupHint) {
 
   const text = await file.text();
   if (GERBER_EXTENSIONS.includes(extension) || (DRILL_EXTENSIONS.includes(extension) && isDrillName(file.name))) {
-    return { ...base, kind: 'gerber', render: createGerberRenderData(text, !GERBER_EXTENSIONS.includes(extension)), text };
+    const render = createGerberRenderData(text, !GERBER_EXTENSIONS.includes(extension), file.name);
+    return { ...base, kind: 'gerber', render, text, notes: [`${(render.bounds.maxX - render.bounds.minX).toFixed(2)} mm × ${(render.bounds.maxY - render.bounds.minY).toFixed(2)} mm`] };
   }
   return { ...base, kind: extension || 'text', text };
 }
@@ -495,7 +620,7 @@ function FilePreview({ preview }) {
       {['gerber', 'drill', 'zip-gerber'].includes(preview.kind) ? (
         <>
           <BoardViewer3D renderData={preview.render} className="preview-canvas" interactive />
-          <div className="viewer-hint">Drag to orbit. Scroll to zoom.</div>
+          <div className="viewer-hint">Drag to orbit all the way around. Scroll to zoom.</div>
         </>
       ) : null}
       {preview.layers?.length ? <div className="tag-row">{preview.layers.map((layer) => <span key={layer} className="chip chip-soft">{layer}</span>)}</div> : null}
