@@ -6,7 +6,7 @@ import PocketBase from 'pocketbase';
 import { clerkMiddleware, getAuth, clerkClient } from '@clerk/express';
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage(), limits: { files: 20, fileSize: 50 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { files: 40, fileSize: 50 * 1024 * 1024 } });
 const pb = new PocketBase(process.env.POCKETBASE_URL);
 const { PORT = 8080, FRONTEND_ORIGIN = '*', POCKETBASE_URL, POCKETBASE_ADMIN_EMAIL, POCKETBASE_ADMIN_PASSWORD } = process.env;
 const allowedOrigins = FRONTEND_ORIGIN === '*' ? [] : FRONTEND_ORIGIN.split(',').map((item) => item.trim()).filter(Boolean);
@@ -15,11 +15,6 @@ app.use(cors({ origin: FRONTEND_ORIGIN === '*' ? true : allowedOrigins, credenti
 app.use(express.json({ limit: '2mb' }));
 app.use(clerkMiddleware(allowedOrigins.length ? { authorizedParties: allowedOrigins } : {}));
 
-async function ensurePocketBaseAdmin() {
-  if (pb.authStore.isValid) return;
-  await pb.collection('_superusers').authWithPassword(POCKETBASE_ADMIN_EMAIL, POCKETBASE_ADMIN_PASSWORD);
-}
-
 function createSlug(text = '') {
   return String(text).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
@@ -27,15 +22,51 @@ function createSlug(text = '') {
 function parseJsonField(value, fallback) {
   if (!value) return fallback;
   if (typeof value !== 'string') return value;
-  try { return JSON.parse(value); } catch { return fallback; }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
 }
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
-  let value = bytes, index = 0;
-  while (value >= 1024 && index < units.length - 1) { value /= 1024; index += 1; }
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
   return `${value.toFixed(value >= 100 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function inferFileGroup(meta = {}, filename = '') {
+  if (meta.group) return meta.group;
+  const lower = String(filename || '').toLowerCase();
+  if (lower.endsWith('.zip')) return 'gerber_zip';
+  if (['.pdf', '.md', '.txt', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp', '.svg'].some((suffix) => lower.endsWith(suffix))) return 'documentation';
+  return 'project_files';
+}
+
+async function ensurePocketBaseAdmin() {
+  if (pb.authStore.isValid) return;
+  await pb.collection('_superusers').authWithPassword(POCKETBASE_ADMIN_EMAIL, POCKETBASE_ADMIN_PASSWORD);
+}
+
+async function requireSignedInUser(req) {
+  const auth = getAuth(req, { acceptsToken: 'session_token' });
+  if (!auth?.isAuthenticated || !auth.userId) {
+    const error = new Error('You must be signed in.');
+    error.statusCode = 401;
+    throw error;
+  }
+  const user = await clerkClient.users.getUser(auth.userId);
+  return {
+    clerkId: auth.userId,
+    email: user.primaryEmailAddress?.emailAddress || '',
+    name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'OpenPCB user',
+  };
 }
 
 function mapProjectRecord(record) {
@@ -50,6 +81,7 @@ function mapProjectRecord(record) {
       mimeType: meta.mimeType || 'application/octet-stream',
       size: Number(meta.size || 0),
       sizeLabel: formatBytes(Number(meta.size || 0)),
+      group: inferFileGroup(meta, meta.originalName || filename),
       url: pb.files.getURL(record, filename),
     };
   });
@@ -71,21 +103,6 @@ function mapProjectRecord(record) {
     files,
     created: record.created,
     updated: record.updated,
-  };
-}
-
-async function requireSignedInUser(req) {
-  const auth = getAuth(req, { acceptsToken: 'session_token' });
-  if (!auth?.isAuthenticated || !auth.userId) {
-    const error = new Error('You must be signed in.');
-    error.statusCode = 401;
-    throw error;
-  }
-  const user = await clerkClient.users.getUser(auth.userId);
-  return {
-    clerkId: auth.userId,
-    email: user.primaryEmailAddress?.emailAddress || '',
-    name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'OpenPCB user',
   };
 }
 
@@ -155,11 +172,34 @@ app.get('/api/users/me/projects', async (req, res, next) => {
   }
 });
 
-app.post('/api/projects', upload.array('files', 20), async (req, res, next) => {
+app.post('/api/projects', upload.fields([
+  { name: 'gerberZip', maxCount: 1 },
+  { name: 'documentationFiles', maxCount: 15 },
+  { name: 'projectFiles', maxCount: 20 },
+]), async (req, res, next) => {
   try {
     const user = await requireSignedInUser(req);
     await ensurePocketBaseAdmin();
+
     const payload = JSON.parse(req.body.payload || '{}');
+    const gerberZip = req.files?.gerberZip?.[0] || null;
+    if (!gerberZip) {
+      const error = new Error('A Gerber ZIP is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!String(gerberZip.originalname || '').toLowerCase().endsWith('.zip')) {
+      const error = new Error('The required Gerber upload must be a ZIP file.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const orderedFiles = [
+      { ...gerberZip, group: 'gerber_zip' },
+      ...(req.files?.documentationFiles || []).map((file) => ({ ...file, group: 'documentation' })),
+      ...(req.files?.projectFiles || []).map((file) => ({ ...file, group: 'project_files' })),
+    ];
+
     const formData = new FormData();
     formData.append('slug', `${createSlug(payload.title || 'project')}-${Date.now()}`);
     formData.append('title', String(payload.title || '').trim());
@@ -173,12 +213,19 @@ app.post('/api/projects', upload.array('files', 20), async (req, res, next) => {
     formData.append('tags', JSON.stringify(Array.isArray(payload.tags) ? payload.tags : []));
     formData.append('category', String(payload.category || 'General'));
     formData.append('isPublic', payload.isPublic === false ? 'false' : 'true');
+
     const fileMeta = [];
-    for (const file of req.files || []) {
+    for (const file of orderedFiles) {
       formData.append('archives', new Blob([file.buffer], { type: file.mimetype || 'application/octet-stream' }), file.originalname);
-      fileMeta.push({ originalName: file.originalname, mimeType: file.mimetype || 'application/octet-stream', size: file.size || 0 });
+      fileMeta.push({
+        originalName: file.originalname,
+        mimeType: file.mimetype || 'application/octet-stream',
+        size: file.size || 0,
+        group: file.group,
+      });
     }
     formData.append('fileMeta', JSON.stringify(fileMeta));
+
     const created = await pb.collection('projects').create(formData);
     res.status(201).json(mapProjectRecord(created));
   } catch (error) {
@@ -209,6 +256,23 @@ app.post('/api/projects/:id/fork', async (req, res, next) => {
       archives: [],
     });
     res.status(201).json(mapProjectRecord(cloned));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/projects/:id', async (req, res, next) => {
+  try {
+    const user = await requireSignedInUser(req);
+    await ensurePocketBaseAdmin();
+    const project = await pb.collection('projects').getOne(req.params.id);
+    if (project.ownerClerkId !== user.clerkId) {
+      const error = new Error('You can only delete your own projects.');
+      error.statusCode = 403;
+      throw error;
+    }
+    await pb.collection('projects').delete(req.params.id);
+    res.json({ ok: true });
   } catch (error) {
     next(error);
   }
