@@ -47,7 +47,6 @@ main { flex: 1; }
 .footer-shell,
 .project-hero-top,
 .meta-grid,
-.preview-tab-row,
 .filters-shell,
 .sponsor-grid,
 .upload-bucket-title-row,
@@ -160,7 +159,8 @@ h3 { font-size: 1.1rem; margin-bottom: .55rem; }
 .ad-slot p,
 .background-image-panel p,
 .upload-bucket p,
-.project-card-thumbnail-empty {
+.project-card-thumbnail-empty,
+.viewer-hint {
   color: var(--muted);
   line-height: 1.6;
 }
@@ -344,7 +344,9 @@ input, textarea, select {
 }
 
 .sidebar-card { position: sticky; top: 98px; }
-.preview-image, .preview-frame, .preview-canvas {
+.preview-image,
+.preview-frame,
+.preview-canvas {
   width: 100%;
   border-radius: 16px;
   border: 1px solid var(--line);
@@ -352,7 +354,16 @@ input, textarea, select {
 }
 .preview-image { max-height: 520px; object-fit: contain; }
 .preview-frame { min-height: 520px; }
-.preview-canvas { min-height: 420px; display: block; }
+.preview-canvas {
+  height: 420px;
+  display: block;
+  cursor: grab;
+}
+.preview-canvas:active { cursor: grabbing; }
+.viewer-hint {
+  margin-top: .65rem;
+  font-size: .92rem;
+}
 
 .code-panel {
   margin-top: .95rem;
@@ -362,18 +373,6 @@ input, textarea, select {
   color: #d9e7ff;
   max-height: 320px;
   overflow: auto;
-}
-.preview-tab {
-  border: 1px solid var(--line);
-  background: rgba(255,255,255,.78);
-  color: var(--muted);
-  padding: .62rem .88rem;
-  border-radius: 999px;
-}
-.preview-tab-active {
-  color: var(--text);
-  border-color: rgba(46,107,255,.35);
-  background: rgba(234,240,255,.95);
 }
 
 .meta-grid {

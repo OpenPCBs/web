@@ -11,8 +11,23 @@ import {
   useAuth,
   useUser,
 } from '@clerk/clerk-react';
-import { Archive, ArrowRight, ArrowUpRight, Download, Files, FileText, FolderOpen, GitFork, ImageIcon, Layers3, Rocket, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  ArrowRight,
+  ArrowUpRight,
+  Download,
+  Files,
+  FileText,
+  FolderOpen,
+  GitFork,
+  ImageIcon,
+  Layers3,
+  Rocket,
+  Trash2,
+} from 'lucide-react';
 import JSZip from 'jszip';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const DOC_EXTENSIONS = ['pdf', 'md', 'txt', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'webp', 'svg'];
@@ -177,22 +192,7 @@ function mergeRenderData(items) {
   return merged;
 }
 
-function createRoundedRectPath(ctx, x, y, width, height, radius) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + width - r, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-  ctx.lineTo(x + width, y + height - r);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-  ctx.lineTo(x + r, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-function buildBoardTexture(renderData, width = 1000, height = 700) {
+function buildBoardTexture(renderData, width = 2048, height = 1400) {
   const offscreen = document.createElement('canvas');
   offscreen.width = width;
   offscreen.height = height;
@@ -200,39 +200,41 @@ function buildBoardTexture(renderData, width = 1000, height = 700) {
   const { minX, minY, maxX, maxY } = renderData.bounds;
   const spanX = Math.max(maxX - minX, 1);
   const spanY = Math.max(maxY - minY, 1);
-  const padding = 50;
+  const padding = 56;
   const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY);
 
-  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = '#166a4a';
+  ctx.fillRect(0, 0, width, height);
+
   ctx.save();
   ctx.translate(padding, height - padding);
   ctx.scale(scale, -scale);
   ctx.translate(-minX, -minY);
 
-  ctx.strokeStyle = '#d4b25c';
-  ctx.fillStyle = '#d4b25c';
+  ctx.strokeStyle = '#d1b160';
+  ctx.fillStyle = '#d1b160';
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
   for (const command of renderData.commands) {
-    ctx.lineWidth = Math.max(command.width / 1000, 1.2 / scale);
+    ctx.lineWidth = Math.max(command.width / 1000, 1.4 / scale);
     ctx.beginPath();
     ctx.moveTo(command.x1, command.y1);
     ctx.lineTo(command.x2, command.y2);
     ctx.stroke();
   }
 
-  ctx.fillStyle = '#e8d38c';
+  ctx.fillStyle = '#ead790';
   for (const flash of renderData.flashes) {
-    const radius = Math.max(flash.r / 2000, 1.2 / scale);
+    const radius = Math.max(flash.r / 2000, 1.3 / scale);
     ctx.beginPath();
     ctx.arc(flash.x, flash.y, radius, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  ctx.fillStyle = '#08131c';
-  for (const drill of renderData.drills) {
-    const radius = Math.max(drill.r / 2000, 1 / scale);
+  ctx.fillStyle = '#0b1120';
+  for (const drill of renderData.drills.slice(0, 1200)) {
+    const radius = Math.max(drill.r / 2200, 1 / scale);
     ctx.beginPath();
     ctx.arc(drill.x, drill.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -242,61 +244,176 @@ function buildBoardTexture(renderData, width = 1000, height = 700) {
   return offscreen;
 }
 
-function drawBoardPreview(canvas, renderData) {
-  if (!canvas || !renderData) return;
-  const ctx = canvas.getContext('2d');
-  const width = canvas.width;
-  const height = canvas.height;
-  const boardWidth = width * 0.7;
-  const boardHeight = height * 0.46;
-  const thickness = 18;
-  const boardX = (width - boardWidth) / 2;
-  const boardY = (height - boardHeight) / 2 - 8;
+function createRoundedRectShape(width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  const x = -width / 2;
+  const y = -height / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(x + r, y);
+  shape.lineTo(x + width - r, y);
+  shape.quadraticCurveTo(x + width, y, x + width, y + r);
+  shape.lineTo(x + width, y + height - r);
+  shape.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  shape.lineTo(x + r, y + height);
+  shape.quadraticCurveTo(x, y + height, x, y + height - r);
+  shape.lineTo(x, y + r);
+  shape.quadraticCurveTo(x, y, x + r, y);
+  return shape;
+}
 
-  ctx.clearRect(0, 0, width, height);
-  const background = ctx.createLinearGradient(0, 0, width, height);
-  background.addColorStop(0, '#eef3fb');
-  background.addColorStop(1, '#dde8f8');
-  ctx.fillStyle = background;
-  ctx.fillRect(0, 0, width, height);
+function disposeMaterial(material) {
+  if (!material) return;
+  if (Array.isArray(material)) {
+    material.forEach(disposeMaterial);
+    return;
+  }
+  if (material.map) material.map.dispose();
+  material.dispose();
+}
 
-  ctx.save();
-  ctx.translate(boardX + boardWidth / 2, boardY + boardHeight / 2);
-  ctx.rotate(-0.08);
+function mountBoardViewer(canvas, renderData, { interactive = true } = {}) {
+  if (!canvas || !renderData) return () => {};
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf1f6fc);
 
-  const x = -boardWidth / 2;
-  const y = -boardHeight / 2;
-  const texture = buildBoardTexture(renderData, 1100, 700);
+  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+  camera.up.set(0, 0, 1);
 
-  ctx.fillStyle = 'rgba(7, 12, 22, 0.18)';
-  createRoundedRectPath(ctx, x + 18, y + 22, boardWidth, boardHeight, 18);
-  ctx.fill();
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
+  else renderer.outputEncoding = THREE.sRGBEncoding;
 
-  ctx.fillStyle = '#0b4c35';
-  createRoundedRectPath(ctx, x + 10, y + boardHeight - 2, boardWidth, thickness, 16);
-  ctx.fill();
-  createRoundedRectPath(ctx, x + boardWidth - 2, y + 10, thickness, boardHeight, 16);
-  ctx.fill();
+  const group = new THREE.Group();
+  scene.add(group);
 
-  const boardGradient = ctx.createLinearGradient(x, y, x, y + boardHeight);
-  boardGradient.addColorStop(0, '#17835a');
-  boardGradient.addColorStop(1, '#0c5d40');
-  ctx.fillStyle = boardGradient;
-  createRoundedRectPath(ctx, x, y, boardWidth, boardHeight, 18);
-  ctx.fill();
+  const spanX = Math.max(renderData.bounds.maxX - renderData.bounds.minX, 1);
+  const spanY = Math.max(renderData.bounds.maxY - renderData.bounds.minY, 1);
+  const aspect = spanX / spanY;
+  const boardLongest = 6.4;
+  const boardWidth = aspect >= 1 ? boardLongest : boardLongest * aspect;
+  const boardHeight = aspect >= 1 ? boardLongest / aspect : boardLongest;
+  const thickness = 0.14;
+  const radius = Math.min(boardWidth, boardHeight) * 0.08;
+  const shape = createRoundedRectShape(boardWidth, boardHeight, radius);
 
-  ctx.save();
-  createRoundedRectPath(ctx, x, y, boardWidth, boardHeight, 18);
-  ctx.clip();
-  ctx.drawImage(texture, x + 12, y + 12, boardWidth - 24, boardHeight - 24);
-  ctx.restore();
+  const boardGeometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 28, steps: 1 });
+  boardGeometry.translate(0, 0, -thickness / 2);
+  const boardMaterial = new THREE.MeshStandardMaterial({ color: 0x0f6c4f, roughness: 0.72, metalness: 0.08 });
+  const boardMesh = new THREE.Mesh(boardGeometry, boardMaterial);
+  group.add(boardMesh);
 
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(255,255,255,0.32)';
-  createRoundedRectPath(ctx, x, y, boardWidth, boardHeight, 18);
-  ctx.stroke();
+  const textureCanvas = buildBoardTexture(renderData);
+  const boardTexture = new THREE.CanvasTexture(textureCanvas);
+  if ('colorSpace' in boardTexture) boardTexture.colorSpace = THREE.SRGBColorSpace;
+  else boardTexture.encoding = THREE.sRGBEncoding;
+  if (renderer.capabilities?.getMaxAnisotropy) boardTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-  ctx.restore();
+  const topGeometry = new THREE.ShapeGeometry(shape, 40);
+  topGeometry.translate(0, 0, thickness / 2 + 0.001);
+  const topMaterial = new THREE.MeshStandardMaterial({ map: boardTexture, color: 0xffffff, roughness: 0.58, metalness: 0.1 });
+  const topMesh = new THREE.Mesh(topGeometry, topMaterial);
+  group.add(topMesh);
+
+  const bottomGeometry = new THREE.ShapeGeometry(shape, 40);
+  bottomGeometry.translate(0, 0, -thickness / 2 - 0.001);
+  const bottomMaterial = new THREE.MeshStandardMaterial({ color: 0x0e5f44, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide });
+  const bottomMesh = new THREE.Mesh(bottomGeometry, bottomMaterial);
+  group.add(bottomMesh);
+
+  const drillMaterial = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.2 });
+  const drillScale = Math.min(boardWidth / spanX, boardHeight / spanY);
+  const minX = renderData.bounds.minX;
+  const minY = renderData.bounds.minY;
+  for (const drill of renderData.drills.slice(0, 650)) {
+    const localX = ((drill.x - minX) / spanX - 0.5) * boardWidth;
+    const localY = ((drill.y - minY) / spanY - 0.5) * boardHeight;
+    const radiusValue = Math.max((drill.r / 2200) * drillScale, 0.018);
+    const geo = new THREE.CylinderGeometry(radiusValue, radiusValue, thickness + 0.04, 16);
+    geo.rotateX(Math.PI / 2);
+    const hole = new THREE.Mesh(geo, drillMaterial);
+    hole.position.set(localX, localY, 0);
+    group.add(hole);
+  }
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xc8d8e8, 1.25));
+  const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  mainLight.position.set(6, -7, 8);
+  scene.add(mainLight);
+  const fillLight = new THREE.DirectionalLight(0xbcd7ff, 0.7);
+  fillLight.position.set(-6, 5, 4);
+  scene.add(fillLight);
+
+  const controls = interactive ? new OrbitControls(camera, canvas) : null;
+  if (controls) {
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.target.set(0, 0, 0);
+    controls.minDistance = Math.max(boardWidth, boardHeight) * 0.95;
+    controls.maxDistance = Math.max(boardWidth, boardHeight) * 4.5;
+    controls.screenSpacePanning = false;
+    controls.enablePan = true;
+    controls.maxPolarAngle = Math.PI / 2.02;
+  }
+
+  camera.position.set(boardWidth * 0.72, -boardHeight * 1.22, Math.max(boardWidth, boardHeight) * 1.15);
+  camera.lookAt(0, 0, 0);
+
+  const renderScene = () => {
+    controls?.update();
+    renderer.render(scene, camera);
+  };
+
+  const resize = () => {
+    const width = canvas.clientWidth || (interactive ? 860 : 560);
+    const height = canvas.clientHeight || (interactive ? 420 : 180);
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderScene();
+  };
+
+  let frameId = 0;
+  const tick = () => {
+    renderScene();
+    frameId = requestAnimationFrame(tick);
+  };
+
+  let observer = null;
+  if (typeof ResizeObserver !== 'undefined') {
+    observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+  } else {
+    window.addEventListener('resize', resize);
+  }
+
+  resize();
+  if (interactive) tick();
+
+  return () => {
+    if (frameId) cancelAnimationFrame(frameId);
+    if (observer) observer.disconnect();
+    else window.removeEventListener('resize', resize);
+    controls?.dispose();
+    boardGeometry.dispose();
+    topGeometry.dispose();
+    bottomGeometry.dispose();
+    group.traverse((child) => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) disposeMaterial(child.material);
+    });
+    boardTexture.dispose();
+    renderer.dispose();
+  };
+}
+
+function BoardViewer3D({ renderData, className, interactive = true }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (!renderData) return undefined;
+    return mountBoardViewer(canvasRef.current, renderData, { interactive });
+  }, [renderData, interactive]);
+  return <canvas ref={canvasRef} className={className} />;
 }
 
 async function buildFilePreview(file, groupHint) {
@@ -329,7 +446,7 @@ async function buildFilePreview(file, groupHint) {
         kind: 'zip-gerber',
         layers: layers.map((layer) => layer.name),
         render: mergeRenderData(layers.map((layer) => createGerberRenderData(layer.text, layer.isDrill))),
-        notes: [`${entries.length} files in bundle`, `${layers.length} renderable layers detected`],
+        notes: [`${entries.length} files in bundle`, `${layers.length} renderable layers detected`, 'Interactive 3D preview'],
       };
     }
     return {
@@ -358,16 +475,12 @@ async function buildPreviewFromRemoteFile(fileDescriptor) {
 }
 
 function FilePreview({ preview }) {
-  const canvasRef = useRef(null);
-  useEffect(() => {
-    if (preview?.render && ['gerber', 'drill', 'zip-gerber'].includes(preview.kind)) {
-      drawBoardPreview(canvasRef.current, preview.render);
-    }
-  }, [preview]);
   useEffect(() => () => {
     if (preview?.objectUrl) URL.revokeObjectURL(preview.objectUrl);
   }, [preview]);
+
   if (!preview) return null;
+
   return (
     <article className="preview-card">
       <div className="preview-card-header">
@@ -379,7 +492,12 @@ function FilePreview({ preview }) {
       </div>
       {preview.kind === 'image' ? <img className="preview-image" src={preview.objectUrl} alt={preview.name} /> : null}
       {preview.kind === 'pdf' ? <iframe className="preview-frame" title={preview.name} src={preview.objectUrl} /> : null}
-      {['gerber', 'drill', 'zip-gerber'].includes(preview.kind) ? <canvas ref={canvasRef} className="preview-canvas" width="860" height="520" /> : null}
+      {['gerber', 'drill', 'zip-gerber'].includes(preview.kind) ? (
+        <>
+          <BoardViewer3D renderData={preview.render} className="preview-canvas" interactive />
+          <div className="viewer-hint">Drag to orbit. Scroll to zoom.</div>
+        </>
+      ) : null}
       {preview.layers?.length ? <div className="tag-row">{preview.layers.map((layer) => <span key={layer} className="chip chip-soft">{layer}</span>)}</div> : null}
       {preview.notes?.length ? <div className="tag-row">{preview.notes.map((note) => <span key={note} className="chip chip-soft">{note}</span>)}</div> : null}
       {preview.text && !['image', 'pdf'].includes(preview.kind) ? <pre className="code-panel">{preview.text.slice(0, 2400)}</pre> : null}
@@ -388,7 +506,6 @@ function FilePreview({ preview }) {
 }
 
 function ProjectBoardThumbnail({ project }) {
-  const canvasRef = useRef(null);
   const [preview, setPreview] = useState(null);
   const gerberFile = useMemo(() => getPrimaryGerberFile(project.files || []), [project.files]);
 
@@ -410,21 +527,17 @@ function ProjectBoardThumbnail({ project }) {
     };
   }, [gerberFile?.url]);
 
-  useEffect(() => {
-    if (preview?.render) drawBoardPreview(canvasRef.current, preview.render);
-  }, [preview]);
-
   if (!gerberFile || inferFileGroup(gerberFile) !== 'gerber_zip') {
     return <div className="project-card-thumbnail project-card-thumbnail-empty">No Gerber preview</div>;
   }
 
   if (!preview?.render) {
-    return <div className="project-card-thumbnail project-card-thumbnail-empty">Generating board preview…</div>;
+    return <div className="project-card-thumbnail project-card-thumbnail-empty">Generating 3D preview…</div>;
   }
 
   return (
     <div className="project-card-thumbnail">
-      <canvas ref={canvasRef} className="project-card-thumbnail-canvas" width="560" height="320" />
+      <BoardViewer3D renderData={preview.render} className="project-card-thumbnail-canvas" interactive={false} />
     </div>
   );
 }
@@ -539,7 +652,7 @@ function HomePage({ projects, loading }) {
         <div className="container">
           <div className="section-heading">
             <span className="eyebrow">Core flow</span>
-            <h2>Keep the homepage focused on what people can do.</h2>
+            <h2>Simple work flow</h2>
           </div>
           <div className="feature-grid">
             <article className="feature-card"><Files size={20} /><h3>Upload project files</h3><p>Share schematics, layouts, Gerbers, PDFs, renders, and documentation in one place.</p></article>
@@ -729,9 +842,9 @@ function PublishPage({ refreshProjects }) {
           <div className="section-heading">
             <span className="eyebrow">Upload</span>
             <h1>Publish a hardware project.</h1>
-            <p className="hero-copy">Use the Gerber ZIP as the main required upload, then add documentation and project files if you want. The board preview is generated from the Gerber ZIP bundle.</p>
+            <p className="hero-copy">Use the Gerber ZIP as the main required upload, then add documentation and project files if you want. The board preview is a full interactive WebGL scene generated from the Gerber ZIP bundle.</p>
           </div>
-          {gerberPreview ? <FilePreview preview={gerberPreview} /> : <div className="empty-state">Add a Gerber ZIP to generate the board preview.</div>}
+          {gerberPreview ? <FilePreview preview={gerberPreview} /> : <div className="empty-state">Add a Gerber ZIP to generate the interactive board preview.</div>}
         </div>
         <div>
           <SignedOut>
@@ -759,7 +872,7 @@ function PublishPage({ refreshProjects }) {
                 <UploadBucket
                   icon={<Archive size={18} />}
                   title="Gerber ZIP"
-                  help="Required. Upload the zipped manufacturing package that should drive the board preview."
+                  help="Required. Upload the zipped manufacturing package that drives the 3D board preview."
                   accept=".zip"
                   onChange={onGerberChange}
                   files={gerberZipFile ? [gerberZipFile] : []}
