@@ -358,8 +358,8 @@ function buildBoardTexture(previewData, side = 'top', width = 2048, height = 140
   const padding = 56;
   const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY);
 
-  ctx.fillStyle = '#166a4a';
-  ctx.fillRect(0, 0, width, height);
+  ctx.clearRect(0, 0, width, height);
+  ctx.imageSmoothingEnabled = true;
 
   ctx.save();
   if (side === 'bottom') {
@@ -371,14 +371,6 @@ function buildBoardTexture(previewData, side = 'top', width = 2048, height = 140
   ctx.translate(-bounds.minX, -bounds.minY);
 
   drawLayerSet(ctx, side === 'bottom' ? previewData.bottom : previewData.top);
-
-  ctx.fillStyle = '#09121e';
-  for (const drill of previewData.drills.slice(0, 1400)) {
-    const r = Math.max((drill.diameter || 0.35) / 2, 0.08);
-    ctx.beginPath();
-    ctx.arc(drill.x, drill.y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
   ctx.restore();
   return offscreen;
@@ -457,11 +449,13 @@ function createSurfaceMaterial(texture) {
     roughness: 0.56,
     metalness: 0.1,
     side: THREE.FrontSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -4,
+    transparent: true,
+    alphaTest: 0.05,
     depthTest: true,
-    depthWrite: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -2,
   });
 }
 
@@ -475,7 +469,7 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   const boardHeight = spanY;
   const boardLongest = Math.max(boardWidth, boardHeight);
   const thickness = 1.6;
-  const surfaceLift = Math.max(thickness * 0.06, 0.12);
+  const surfaceLift = Math.max(thickness * 0.01, 0.02);
   const centerX = (boardBounds.minX + boardBounds.maxX) / 2;
   const centerY = (boardBounds.minY + boardBounds.maxY) / 2;
 
@@ -485,7 +479,7 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, Math.max(boardLongest * 50, 300));
   camera.up.set(0, 0, 1);
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true, logarithmicDepthBuffer: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
   else renderer.outputEncoding = THREE.sRGBEncoding;
