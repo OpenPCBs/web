@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import {
   ClerkLoaded,
@@ -11,28 +11,11 @@ import {
   useAuth,
   useUser,
 } from '@clerk/clerk-react';
-import {
-  Archive,
-  ArrowRight,
-  ArrowUpRight,
-  Download,
-  Files,
-  FileText,
-  FolderOpen,
-  GitFork,
-  ImageIcon,
-  Layers3,
-  Rocket,
-  Trash2,
-} from 'lucide-react';
-import JSZip from 'jszip';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { Archive, ArrowRight, ArrowUpRight, Download, Files, FileText, FolderOpen, GitFork, ImageIcon, Layers3, Rocket, Trash2 } from 'lucide-react';
+import { BoardViewer3DFixed, buildGerberPreviewFile } from './gerber3d';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const DOC_EXTENSIONS = ['pdf', 'md', 'txt', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'webp', 'svg'];
-const GERBER_EXTENSIONS = ['gbr', 'gtl', 'gbl', 'gto', 'gbo', 'gko', 'gm1', 'gml', 'pho', 'art', 'cmp', 'sol'];
-const DRILL_EXTENSIONS = ['drl', 'xln', 'txt'];
 
 function request(path, options = {}) {
   if (!API_BASE_URL) return Promise.reject(new Error('The frontend is missing VITE_API_BASE_URL.'));
@@ -54,25 +37,8 @@ function parseTags(value) {
   return String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
 }
 
-function bytesToLabel(bytes = 0) {
-  if (!bytes) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let value = bytes;
-  let i = 0;
-  while (value >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i += 1;
-  }
-  return `${value.toFixed(value >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
 function fileExt(name = '') {
   return name.split('.').pop()?.toLowerCase() || '';
-}
-
-function isDrillName(name = '') {
-  const lower = name.toLowerCase();
-  return lower.includes('drill') || lower.endsWith('.drl') || lower.endsWith('.xln');
 }
 
 function inferFileGroup(file = {}) {
@@ -102,498 +68,11 @@ function getPrimaryGerberFile(files = []) {
   return files.find((file) => inferFileGroup(file) === 'gerber_zip') || files.find((file) => fileExt(file.name) === 'zip') || files[0] || null;
 }
 
-function isOutlineLayerName(name = '') {
-  const lower = name.toLowerCase();
-  return lower.endsWith('.gko') || lower.endsWith('.gm1') || lower.endsWith('.gml') || lower.includes('outline') || lower.includes('edge') || lower.includes('profile') || lower.includes('cuts');
-}
-
-function parseGerberFormatLine(line) {
-  const match = line.match(/%FS([LT])A?X(\d)(\d)Y(\d)(\d)\*%/i);
-  if (!match) return null;
-  return {
-    zeroOmission: match[1].toUpperCase(),
-    xInteger: Number(match[2]),
-    xDecimal: Number(match[3]),
-    yInteger: Number(match[4]),
-    yDecimal: Number(match[5]),
-  };
-}
-
-function parseGerberUnitsLine(line) {
-  const match = line.match(/%MO(IN|MM)\*%/i);
-  return match ? match[1].toUpperCase() : null;
-}
-
-function parseDrillUnitsLine(line) {
-  const upper = line.toUpperCase();
-  if (upper.includes('M72') || upper.includes('INCH')) return 'IN';
-  if (upper.includes('M71') || upper.includes('METRIC')) return 'MM';
-  return null;
-}
-
-function coordinateScale(units) {
-  return units === 'IN' ? 25.4 : 1;
-}
-
-function parseFormattedCoordinate(rawValue, integerDigits, decimalDigits, zeroOmission = 'L') {
-  if (rawValue == null) return 0;
-  const sign = rawValue.startsWith('-') ? -1 : 1;
-  const digitsOnly = rawValue.replace(/^[+-]/, '');
-  const expectedLength = integerDigits + decimalDigits;
-  let padded = digitsOnly;
-  if (digitsOnly.length < expectedLength) {
-    padded = zeroOmission === 'T' ? digitsOnly.padEnd(expectedLength, '0') : digitsOnly.padStart(expectedLength, '0');
-  }
-  const numeric = Number(padded || '0') / (10 ** decimalDigits);
-  return sign * numeric;
-}
-
-function parseApertureSize(rawValue, units) {
-  if (!rawValue) return 0.22;
-  const first = String(rawValue).split('X')[0];
-  const numeric = Number(first || 0);
-  if (!Number.isFinite(numeric)) return 0.22;
-  return numeric * coordinateScale(units);
-}
-
-function createGerberRenderData(text, isDrill = false, layerName = '') {
-  const commands = [];
-  const flashes = [];
-  const drills = [];
-  const apertureMap = new Map();
-  const outlineLayer = isOutlineLayerName(layerName);
-  let currentAperture = '10';
-  let currentX = 0;
-  let currentY = 0;
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  let units = 'MM';
-  let format = { zeroOmission: 'L', xInteger: 2, xDecimal: 4, yInteger: 2, yDecimal: 4 };
-
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line) continue;
-
-    const fs = parseGerberFormatLine(line);
-    if (fs) {
-      format = fs;
-      continue;
-    }
-
-    const mo = parseGerberUnitsLine(line);
-    if (mo) {
-      units = mo;
-      continue;
-    }
-
-    if (isDrill) {
-      const drillUnits = parseDrillUnitsLine(line);
-      if (drillUnits) {
-        units = drillUnits;
-        continue;
-      }
-      const drill = line.match(/^X(-?\d+)Y(-?\d+)/);
-      if (drill) {
-        const x = parseFormattedCoordinate(drill[1], format.xInteger, format.xDecimal, format.zeroOmission) * coordinateScale(units);
-        const y = parseFormattedCoordinate(drill[2], format.yInteger, format.yDecimal, format.zeroOmission) * coordinateScale(units);
-        drills.push({ x, y, r: 0.35 });
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x);
-        maxY = Math.max(maxY, y);
-      }
-      continue;
-    }
-
-    const apertureDef = line.match(/%ADD(\d+)([A-Z]),?([0-9.Xx+-]+)?/i);
-    if (apertureDef) {
-      apertureMap.set(apertureDef[1], { shape: apertureDef[2], size: parseApertureSize(apertureDef[3], units) });
-      continue;
-    }
-
-    const selectAperture = line.match(/^D(\d+)\*$/);
-    if (selectAperture && Number(selectAperture[1]) >= 10) {
-      currentAperture = selectAperture[1];
-      continue;
-    }
-
-    const draw = line.match(/^(?:G0[123])?X(-?\d+)Y(-?\d+)(?:D0([123]))?\*$/);
-    if (!draw) continue;
-
-    const x = parseFormattedCoordinate(draw[1], format.xInteger, format.xDecimal, format.zeroOmission) * coordinateScale(units);
-    const y = parseFormattedCoordinate(draw[2], format.yInteger, format.yDecimal, format.zeroOmission) * coordinateScale(units);
-    const op = draw[3] || '1';
-    const aperture = apertureMap.get(currentAperture) || { size: 0.22, shape: 'C' };
-
-    if (op === '2') {
-      currentX = x;
-      currentY = y;
-    } else if (op === '1') {
-      commands.push({ x1: currentX, y1: currentY, x2: x, y2: y, width: aperture.size || 0.22 });
-      currentX = x;
-      currentY = y;
-    } else if (op === '3') {
-      flashes.push({ x, y, r: aperture.size || 0.22, shape: aperture.shape || 'C' });
-      currentX = x;
-      currentY = y;
-    }
-
-    minX = Math.min(minX, x, currentX);
-    minY = Math.min(minY, y, currentY);
-    maxX = Math.max(maxX, x, currentX);
-    maxY = Math.max(maxY, y, currentY);
-  }
-
-  if (!Number.isFinite(minX)) {
-    minX = 0;
-    minY = 0;
-    maxX = 100;
-    maxY = 100;
-  }
-
-  const bounds = { minX, minY, maxX, maxY };
-  return {
-    bounds,
-    boardBounds: outlineLayer ? bounds : null,
-    commands,
-    flashes,
-    drills,
-    units: 'MM',
-  };
-}
-
-function mergeRenderData(items) {
-  const merged = {
-    bounds: { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
-    boardBounds: { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
-    commands: [],
-    flashes: [],
-    drills: [],
-    units: 'MM',
-  };
-
-  let hasOutlineBounds = false;
-
-  for (const item of items) {
-    merged.commands.push(...item.commands);
-    merged.flashes.push(...item.flashes);
-    merged.drills.push(...item.drills);
-    merged.bounds.minX = Math.min(merged.bounds.minX, item.bounds.minX);
-    merged.bounds.minY = Math.min(merged.bounds.minY, item.bounds.minY);
-    merged.bounds.maxX = Math.max(merged.bounds.maxX, item.bounds.maxX);
-    merged.bounds.maxY = Math.max(merged.bounds.maxY, item.bounds.maxY);
-
-    if (item.boardBounds) {
-      hasOutlineBounds = true;
-      merged.boardBounds.minX = Math.min(merged.boardBounds.minX, item.boardBounds.minX);
-      merged.boardBounds.minY = Math.min(merged.boardBounds.minY, item.boardBounds.minY);
-      merged.boardBounds.maxX = Math.max(merged.boardBounds.maxX, item.boardBounds.maxX);
-      merged.boardBounds.maxY = Math.max(merged.boardBounds.maxY, item.boardBounds.maxY);
-    }
-  }
-
-  if (!Number.isFinite(merged.bounds.minX)) {
-    merged.bounds = { minX: 0, minY: 0, maxX: 100, maxY: 100 };
-  }
-
-  if (!hasOutlineBounds || !Number.isFinite(merged.boardBounds.minX)) {
-    merged.boardBounds = { ...merged.bounds };
-  }
-
-  const boardWidthMm = Math.max(merged.boardBounds.maxX - merged.boardBounds.minX, 0);
-  const boardHeightMm = Math.max(merged.boardBounds.maxY - merged.boardBounds.minY, 0);
-  merged.sizeLabel = `${boardWidthMm.toFixed(2)} mm × ${boardHeightMm.toFixed(2)} mm`;
-
-  return merged;
-}
-
-function buildBoardTexture(renderData, width = 2048, height = 1400) {
-  const offscreen = document.createElement('canvas');
-  offscreen.width = width;
-  offscreen.height = height;
-  const ctx = offscreen.getContext('2d');
-  const sourceBounds = renderData.boardBounds || renderData.bounds;
-  const { minX, minY, maxX, maxY } = sourceBounds;
-  const spanX = Math.max(maxX - minX, 1);
-  const spanY = Math.max(maxY - minY, 1);
-  const padding = 56;
-  const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY);
-
-  ctx.fillStyle = '#166a4a';
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.save();
-  ctx.translate(padding, height - padding);
-  ctx.scale(scale, -scale);
-  ctx.translate(-minX, -minY);
-
-  ctx.strokeStyle = '#d1b160';
-  ctx.fillStyle = '#d1b160';
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  for (const command of renderData.commands) {
-    ctx.lineWidth = Math.max(command.width, 0.08);
-    ctx.beginPath();
-    ctx.moveTo(command.x1, command.y1);
-    ctx.lineTo(command.x2, command.y2);
-    ctx.stroke();
-  }
-
-  ctx.fillStyle = '#ead790';
-  for (const flash of renderData.flashes) {
-    const radius = Math.max(flash.r / 2, 0.08);
-    ctx.beginPath();
-    ctx.arc(flash.x, flash.y, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.fillStyle = '#0b1120';
-  for (const drill of renderData.drills.slice(0, 1200)) {
-    const radius = Math.max(drill.r / 2, 0.08);
-    ctx.beginPath();
-    ctx.arc(drill.x, drill.y, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
-  return offscreen;
-}
-
-function createRoundedRectShape(width, height, radius) {
-  const r = Math.min(radius, width / 2, height / 2);
-  const x = -width / 2;
-  const y = -height / 2;
-  const shape = new THREE.Shape();
-  shape.moveTo(x + r, y);
-  shape.lineTo(x + width - r, y);
-  shape.quadraticCurveTo(x + width, y, x + width, y + r);
-  shape.lineTo(x + width, y + height - r);
-  shape.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-  shape.lineTo(x + r, y + height);
-  shape.quadraticCurveTo(x, y + height, x, y + height - r);
-  shape.lineTo(x, y + r);
-  shape.quadraticCurveTo(x, y, x + r, y);
-  return shape;
-}
-
-function disposeMaterial(material) {
-  if (!material) return;
-  if (Array.isArray(material)) {
-    material.forEach(disposeMaterial);
-    return;
-  }
-  if (material.map) material.map.dispose();
-  material.dispose();
-}
-
-function mountBoardViewer(canvas, renderData, { interactive = true } = {}) {
-  if (!canvas || !renderData) return () => {};
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf1f6fc);
-
-  const bounds = renderData.boardBounds || renderData.bounds;
-  const spanX = Math.max(bounds.maxX - bounds.minX, 1);
-  const spanY = Math.max(bounds.maxY - bounds.minY, 1);
-  const worldScale = 0.06;
-  const boardWidth = Math.max(spanX * worldScale, 1.2);
-  const boardHeight = Math.max(spanY * worldScale, 1.2);
-  const boardLongest = Math.max(boardWidth, boardHeight);
-  const thickness = Math.max(boardLongest * 0.02, 0.12);
-  const radius = Math.min(boardWidth, boardHeight) * 0.08;
-
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, Math.max(boardLongest * 80, 400));
-  camera.up.set(0, 0, 1);
-
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
-  else renderer.outputEncoding = THREE.sRGBEncoding;
-
-  const group = new THREE.Group();
-  scene.add(group);
-
-  const shape = createRoundedRectShape(boardWidth, boardHeight, radius);
-
-  const boardGeometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 28, steps: 1 });
-  boardGeometry.translate(0, 0, -thickness / 2);
-  const boardMaterial = new THREE.MeshStandardMaterial({ color: 0x0f6c4f, roughness: 0.72, metalness: 0.08 });
-  const boardMesh = new THREE.Mesh(boardGeometry, boardMaterial);
-  group.add(boardMesh);
-
-  const textureCanvas = buildBoardTexture(renderData);
-  const boardTexture = new THREE.CanvasTexture(textureCanvas);
-  if ('colorSpace' in boardTexture) boardTexture.colorSpace = THREE.SRGBColorSpace;
-  else boardTexture.encoding = THREE.sRGBEncoding;
-  if (renderer.capabilities?.getMaxAnisotropy) boardTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-  const topGeometry = new THREE.ShapeGeometry(shape, 40);
-  topGeometry.translate(0, 0, thickness / 2 + 0.001);
-  const topMaterial = new THREE.MeshStandardMaterial({ map: boardTexture, color: 0xffffff, roughness: 0.58, metalness: 0.1 });
-  const topMesh = new THREE.Mesh(topGeometry, topMaterial);
-  group.add(topMesh);
-
-  const bottomGeometry = new THREE.ShapeGeometry(shape, 40);
-  bottomGeometry.translate(0, 0, -thickness / 2 - 0.001);
-  const bottomMaterial = new THREE.MeshStandardMaterial({ color: 0x0e5f44, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide });
-  const bottomMesh = new THREE.Mesh(bottomGeometry, bottomMaterial);
-  bottomMesh.rotateY(Math.PI);
-  group.add(bottomMesh);
-
-  const drillMaterial = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.2 });
-  const drillScale = Math.min(boardWidth / spanX, boardHeight / spanY);
-  const minX = bounds.minX;
-  const minY = bounds.minY;
-  for (const drill of renderData.drills.slice(0, 650)) {
-    const localX = ((drill.x - minX) / spanX - 0.5) * boardWidth;
-    const localY = ((drill.y - minY) / spanY - 0.5) * boardHeight;
-    const radiusValue = Math.max((drill.r / 2) * drillScale, 0.02);
-    const geo = new THREE.CylinderGeometry(radiusValue, radiusValue, thickness + 0.04, 16);
-    geo.rotateX(Math.PI / 2);
-    const hole = new THREE.Mesh(geo, drillMaterial);
-    hole.position.set(localX, localY, 0);
-    group.add(hole);
-  }
-
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xc8d8e8, 1.25));
-  const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-  mainLight.position.set(boardLongest * 0.9, -boardLongest * 1.1, boardLongest * 1.2);
-  scene.add(mainLight);
-  const fillLight = new THREE.DirectionalLight(0xbcd7ff, 0.7);
-  fillLight.position.set(-boardLongest * 0.9, boardLongest * 0.8, boardLongest * 0.6);
-  scene.add(fillLight);
-
-  const controls = interactive ? new OrbitControls(camera, canvas) : null;
-  if (controls) {
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.target.set(0, 0, 0);
-    controls.minDistance = boardLongest * 0.7;
-    controls.maxDistance = boardLongest * 6;
-    controls.screenSpacePanning = false;
-    controls.enablePan = true;
-    controls.minPolarAngle = 0.02;
-    controls.maxPolarAngle = Math.PI - 0.02;
-  }
-
-  camera.position.set(boardWidth * 0.8, -boardHeight * 1.35, boardLongest * 0.95);
-  camera.lookAt(0, 0, 0);
-
-  const renderScene = () => {
-    controls?.update();
-    renderer.render(scene, camera);
-  };
-
-  const resize = () => {
-    const width = canvas.clientWidth || (interactive ? 860 : 560);
-    const height = canvas.clientHeight || (interactive ? 420 : 180);
-    renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    renderScene();
-  };
-
-  let frameId = 0;
-  const tick = () => {
-    renderScene();
-    frameId = requestAnimationFrame(tick);
-  };
-
-  let observer = null;
-  if (typeof ResizeObserver !== 'undefined') {
-    observer = new ResizeObserver(resize);
-    observer.observe(canvas);
-  } else {
-    window.addEventListener('resize', resize);
-  }
-
-  resize();
-  if (interactive) tick();
-  else renderScene();
-
-  return () => {
-    if (frameId) cancelAnimationFrame(frameId);
-    if (observer) observer.disconnect();
-    else window.removeEventListener('resize', resize);
-    controls?.dispose();
-    boardGeometry.dispose();
-    topGeometry.dispose();
-    bottomGeometry.dispose();
-    group.traverse((child) => {
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) disposeMaterial(child.material);
-    });
-    boardTexture.dispose();
-    renderer.dispose();
-  };
-}
-
-function BoardViewer3D({ renderData, className, interactive = true }) {
-  const canvasRef = useRef(null);
-  useEffect(() => {
-    if (!renderData) return undefined;
-    return mountBoardViewer(canvasRef.current, renderData, { interactive });
-  }, [renderData, interactive]);
-  return <canvas ref={canvasRef} className={className} />;
-}
-
-async function buildFilePreview(file, groupHint) {
-  const extension = fileExt(file.name);
-  const isImage = (file.type || '').startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(extension);
-  const isPdf = file.type === 'application/pdf' || extension === 'pdf';
-  const base = { name: file.name, sizeLabel: bytesToLabel(file.size), kind: extension || 'file', group: groupHint || inferFileGroup(file) };
-
-  if (isImage || isPdf) {
-    return { ...base, kind: isImage ? 'image' : 'pdf', objectUrl: URL.createObjectURL(file) };
-  }
-
-  if (extension === 'zip') {
-    const zip = await JSZip.loadAsync(file);
-    const entries = Object.values(zip.files).filter((entry) => !entry.dir);
-    const layers = [];
-    for (const entry of entries) {
-      const ext = fileExt(entry.name);
-      if (GERBER_EXTENSIONS.includes(ext) || (DRILL_EXTENSIONS.includes(ext) && isDrillName(entry.name))) {
-        layers.push({
-          name: entry.name,
-          text: await entry.async('text'),
-          isDrill: DRILL_EXTENSIONS.includes(ext) && isDrillName(entry.name),
-        });
-      }
-    }
-    if (layers.length) {
-      const merged = mergeRenderData(layers.map((layer) => createGerberRenderData(layer.text, layer.isDrill, layer.name)));
-      return {
-        ...base,
-        kind: 'zip-gerber',
-        layers: layers.map((layer) => layer.name),
-        render: merged,
-        notes: [`${entries.length} files in bundle`, `${layers.length} renderable layers detected`, merged.sizeLabel, 'Interactive 3D preview'],
-      };
-    }
-    return {
-      ...base,
-      kind: 'zip',
-      text: entries.map((entry) => entry.name).join('\n'),
-      notes: [`${entries.length} files in bundle`, 'No Gerber or drill layers detected'],
-    };
-  }
-
-  const text = await file.text();
-  if (GERBER_EXTENSIONS.includes(extension) || (DRILL_EXTENSIONS.includes(extension) && isDrillName(file.name))) {
-    const render = createGerberRenderData(text, !GERBER_EXTENSIONS.includes(extension), file.name);
-    return { ...base, kind: 'gerber', render, text, notes: [`${(render.bounds.maxX - render.bounds.minX).toFixed(2)} mm × ${(render.bounds.maxY - render.bounds.minY).toFixed(2)} mm`] };
-  }
-  return { ...base, kind: extension || 'text', text };
-}
-
 async function buildPreviewFromRemoteFile(fileDescriptor) {
   const response = await fetch(fileDescriptor.url);
   if (!response.ok) throw new Error(`Could not load ${fileDescriptor.name}.`);
   const blob = await response.blob();
-  return buildFilePreview(
+  return buildGerberPreviewFile(
     new File([blob], fileDescriptor.name, { type: fileDescriptor.mimeType || blob.type || 'application/octet-stream' }),
     inferFileGroup(fileDescriptor),
   );
@@ -619,7 +98,7 @@ function FilePreview({ preview }) {
       {preview.kind === 'pdf' ? <iframe className="preview-frame" title={preview.name} src={preview.objectUrl} /> : null}
       {['gerber', 'drill', 'zip-gerber'].includes(preview.kind) ? (
         <>
-          <BoardViewer3D renderData={preview.render} className="preview-canvas" interactive />
+          <BoardViewer3DFixed renderData={preview.render} className="preview-canvas" interactive />
           <div className="viewer-hint">Drag to orbit all the way around. Scroll to zoom.</div>
         </>
       ) : null}
@@ -641,12 +120,8 @@ function ProjectBoardThumbnail({ project }) {
       return () => {};
     }
     buildPreviewFromRemoteFile(gerberFile)
-      .then((nextPreview) => {
-        if (active) setPreview(nextPreview);
-      })
-      .catch(() => {
-        if (active) setPreview({ kind: 'unavailable' });
-      });
+      .then((nextPreview) => active && setPreview(nextPreview))
+      .catch(() => active && setPreview({ kind: 'unavailable' }));
     return () => {
       active = false;
     };
@@ -655,14 +130,12 @@ function ProjectBoardThumbnail({ project }) {
   if (!gerberFile || inferFileGroup(gerberFile) !== 'gerber_zip') {
     return <div className="project-card-thumbnail project-card-thumbnail-empty">No Gerber preview</div>;
   }
-
   if (!preview?.render) {
     return <div className="project-card-thumbnail project-card-thumbnail-empty">Generating 3D preview…</div>;
   }
-
   return (
     <div className="project-card-thumbnail">
-      <BoardViewer3D renderData={preview.render} className="project-card-thumbnail-canvas" interactive={false} />
+      <BoardViewer3DFixed renderData={preview.render} className="project-card-thumbnail-canvas" interactive={false} />
     </div>
   );
 }
@@ -687,11 +160,7 @@ function ProjectCard({ project, onDelete, deleting = false }) {
         </div>
         <div className="button-row">
           <Link className="inline-action" to={`/project/${project.slug}`}>View project <ArrowUpRight size={16} /></Link>
-          {onDelete ? (
-            <button type="button" className="icon-action icon-action-danger" onClick={() => onDelete(project)} disabled={deleting}>
-              <Trash2 size={16} />
-            </button>
-          ) : null}
+          {onDelete ? <button type="button" className="icon-action icon-action-danger" onClick={() => onDelete(project)} disabled={deleting}><Trash2 size={16} /></button> : null}
         </div>
       </div>
     </article>
@@ -710,11 +179,7 @@ function UploadBucket({ icon, title, help, accept, multiple = false, required = 
         <p>{help}</p>
       </div>
       <input type="file" accept={accept} multiple={multiple} onChange={onChange} />
-      {files?.length ? (
-        <div className="selected-file-list">
-          {files.map((file) => <span key={`${file.name}-${file.size}`} className="selected-file-pill">{file.name}</span>)}
-        </div>
-      ) : null}
+      {files?.length ? <div className="selected-file-list">{files.map((file) => <span key={`${file.name}-${file.size}`} className="selected-file-pill">{file.name}</span>)}</div> : null}
     </label>
   );
 }
@@ -724,10 +189,7 @@ function Navbar() {
   return (
     <header className="site-header">
       <div className="container nav-shell">
-        <Link to="/" className="brand-mark">
-          <span className="brand-icon">◫</span>
-          <div><strong>OpenPCB</strong></div>
-        </Link>
+        <Link to="/" className="brand-mark"><span className="brand-icon">◫</span><div><strong>OpenPCB</strong></div></Link>
         <nav className="nav-links">{items.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? 'nav-link nav-link-active' : 'nav-link')}>{item.label}</NavLink>)}</nav>
         <div className="nav-auth-area">
           <SignedOut>
@@ -745,12 +207,7 @@ function Footer() {
   return (
     <footer className="site-footer">
       <div className="container footer-shell">
-        <div>
-          <div className="brand-mark">
-            <span className="brand-icon">◫</span>
-            <div><strong>OpenPCB</strong><span>Upload project files, browse open boards, and reuse real hardware faster.</span></div>
-          </div>
-        </div>
+        <div className="brand-mark"><span className="brand-icon">◫</span><div><strong>OpenPCB</strong><span>Upload project files, browse open boards, and reuse real hardware faster.</span></div></div>
       </div>
     </footer>
   );
@@ -772,13 +229,9 @@ function HomePage({ projects, loading }) {
           {!API_BASE_URL ? <div className="status-banner status-banner-warning">Connect the frontend to your live data source to show public projects here.</div> : null}
         </div>
       </section>
-
       <section className="section">
         <div className="container">
-          <div className="section-heading">
-            <span className="eyebrow">Core flow</span>
-            <h2>Simple work flow</h2>
-          </div>
+          <div className="section-heading"><span className="eyebrow">Core flow</span><h2>Simple work flow</h2></div>
           <div className="feature-grid">
             <article className="feature-card"><Files size={20} /><h3>Upload project files</h3><p>Share schematics, layouts, Gerbers, PDFs, renders, and documentation in one place.</p></article>
             <article className="feature-card"><Layers3 size={20} /><h3>Browse open boards</h3><p>Search public projects by title, tool, category, author, or tags and jump into the files fast.</p></article>
@@ -786,61 +239,15 @@ function HomePage({ projects, loading }) {
           </div>
         </div>
       </section>
-
-      <section className="section section-tight">
-        <div className="container">
-          <div className="ad-slot ad-slot-banner">
-            <span className="eyebrow">Optional sponsor area</span>
-            <h3>Add one wide ad or sponsor banner here.</h3>
-            <p>This placement sits between major content sections, so it stays visible without interrupting uploads or project browsing.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="section section-soft">
-        <div className="container">
-          <div className="section-heading">
-            <span className="eyebrow">Visual section</span>
-            <h2>Use background imagery to make the site feel more like hardware.</h2>
-            <p className="hero-copy">This section is a good place for full-width board photography, PCB macro shots, assembly scenes, or a collage of featured projects.</p>
-          </div>
-          <div className="background-image-panel">
-            <div className="background-image-panel-inner">
-              <ImageIcon size={22} />
-              <div>
-                <strong>Background image section</strong>
-                <p>Drop in one strong background image or layer multiple featured board renders here.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      <section className="section section-tight"><div className="container"><div className="ad-slot ad-slot-banner"><span className="eyebrow">Optional sponsor area</span><h3>Add one wide ad or sponsor banner here.</h3><p>This placement sits between major content sections, so it stays visible without interrupting uploads or project browsing.</p></div></div></section>
+      <section className="section section-soft"><div className="container"><div className="section-heading"><span className="eyebrow">Visual section</span><h2>Use background imagery to make the site feel more like hardware.</h2><p className="hero-copy">This section is a good place for full-width board photography, PCB macro shots, assembly scenes, or a collage of featured projects.</p></div><div className="background-image-panel"><div className="background-image-panel-inner"><ImageIcon size={22} /><div><strong>Background image section</strong><p>Drop in one strong background image or layer multiple featured board renders here.</p></div></div></div></div></section>
       <section className="section">
         <div className="container">
-          <div className="section-heading section-heading-inline">
-            <div>
-              <span className="eyebrow">Recent projects</span>
-              <h2>Latest public uploads</h2>
-            </div>
-            <Link className="inline-action" to="/explore">See everything <ArrowRight size={16} /></Link>
-          </div>
+          <div className="section-heading section-heading-inline"><div><span className="eyebrow">Recent projects</span><h2>Latest public uploads</h2></div><Link className="inline-action" to="/explore">See everything <ArrowRight size={16} /></Link></div>
           {loading ? <div className="empty-state">Loading public projects…</div> : recent.length ? <div className="project-grid">{recent.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">No public projects yet.</div>}
         </div>
       </section>
-
-      <section className="section section-tight">
-        <div className="container sponsor-grid">
-          <div className="ad-slot">
-            <span className="eyebrow">Optional partner slot</span>
-            <p>Add a compact sponsor card for tools, fabs, or component partners.</p>
-          </div>
-          <div className="ad-slot">
-            <span className="eyebrow">Optional partner slot</span>
-            <p>Use this for a second sponsor or a house ad for featured projects or premium listings.</p>
-          </div>
-        </div>
-      </section>
+      <section className="section section-tight"><div className="container sponsor-grid"><div className="ad-slot"><span className="eyebrow">Optional partner slot</span><p>Add a compact sponsor card for tools, fabs, or component partners.</p></div><div className="ad-slot"><span className="eyebrow">Optional partner slot</span><p>Use this for a second sponsor or a house ad for featured projects or premium listings.</p></div></div></section>
     </>
   );
 }
@@ -854,33 +261,7 @@ function ExplorePage({ projects, loading, error }) {
   }), [projects, query, toolFilter]);
 
   return (
-    <section className="section">
-      <div className="container">
-        <div className="section-heading">
-          <span className="eyebrow">Explore</span>
-          <h1>Search public PCB projects</h1>
-          <p className="hero-copy">Search, filter, and jump straight into project pages and downloadable files.</p>
-        </div>
-        <div className="filters-shell">
-          <label className="field">
-            <span>Search</span>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by title, summary, author, or tag" />
-          </label>
-          <label className="field">
-            <span>Tool</span>
-            <select value={toolFilter} onChange={(e) => setToolFilter(e.target.value)}>
-              <option>All</option>
-              <option>KiCad</option>
-              <option>Altium</option>
-              <option>Eagle</option>
-              <option>Other</option>
-            </select>
-          </label>
-        </div>
-        {error ? <div className="status-banner status-banner-error">{error}</div> : null}
-        {loading ? <div className="empty-state">Loading public projects…</div> : filtered.length ? <div className="project-grid">{filtered.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">No projects match that search yet.</div>}
-      </div>
-    </section>
+    <section className="section"><div className="container"><div className="section-heading"><span className="eyebrow">Explore</span><h1>Search public PCB projects</h1><p className="hero-copy">Search, filter, and jump straight into project pages and downloadable files.</p></div><div className="filters-shell"><label className="field"><span>Search</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by title, summary, author, or tag" /></label><label className="field"><span>Tool</span><select value={toolFilter} onChange={(e) => setToolFilter(e.target.value)}><option>All</option><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label></div>{error ? <div className="status-banner status-banner-error">{error}</div> : null}{loading ? <div className="empty-state">Loading public projects…</div> : filtered.length ? <div className="project-grid">{filtered.map((project) => <ProjectCard key={project.id} project={project} />)}</div> : <div className="empty-state">No projects match that search yet.</div>}</div></section>
   );
 }
 
@@ -897,10 +278,7 @@ function PublishPage({ refreshProjects }) {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    setFormState((current) => ({
-      ...current,
-      authorName: user?.fullName || user?.username || user?.primaryEmailAddress?.emailAddress || current.authorName,
-    }));
+    setFormState((current) => ({ ...current, authorName: user?.fullName || user?.username || user?.primaryEmailAddress?.emailAddress || current.authorName }));
   }, [user]);
 
   const totalSizeLabel = useMemo(() => {
@@ -919,21 +297,8 @@ function PublishPage({ refreshProjects }) {
     const file = event.target.files?.[0] || null;
     setGerberZipFile(file);
     setMessage('');
-    if (!file) {
-      setGerberPreview(null);
-      return;
-    }
-    setGerberPreview(await buildFilePreview(file, 'gerber_zip'));
-  }
-
-  function onDocumentationChange(event) {
-    setDocumentationFiles(Array.from(event.target.files || []));
-    setMessage('');
-  }
-
-  function onProjectFilesChange(event) {
-    setProjectFiles(Array.from(event.target.files || []));
-    setMessage('');
+    if (!file) return setGerberPreview(null);
+    setGerberPreview(await buildGerberPreviewFile(file, 'gerber_zip'));
   }
 
   async function onSubmit(event) {
@@ -961,82 +326,7 @@ function PublishPage({ refreshProjects }) {
   }
 
   return (
-    <section className="section">
-      <div className="container publish-layout">
-        <div>
-          <div className="section-heading">
-            <span className="eyebrow">Upload</span>
-            <h1>Publish a hardware project.</h1>
-            <p className="hero-copy">Use the Gerber ZIP as the main required upload, then add documentation and project files if you want. The board preview is a full interactive WebGL scene generated from the Gerber ZIP bundle.</p>
-          </div>
-          {gerberPreview ? <FilePreview preview={gerberPreview} /> : <div className="empty-state">Add a Gerber ZIP to generate the interactive board preview.</div>}
-        </div>
-        <div>
-          <SignedOut>
-            <div className="hero-surface">
-              <h3>Sign in first</h3>
-              <p>You need an account to publish and own a project.</p>
-              <SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton>
-            </div>
-          </SignedOut>
-          <SignedIn>
-            <form className="publish-form" onSubmit={onSubmit}>
-              <div className="form-grid">
-                <label className="field"><span>Project title</span><input required name="title" value={formState.title} onChange={onChange} /></label>
-                <label className="field"><span>Author name</span><input required name="authorName" value={formState.authorName} onChange={onChange} /></label>
-                <label className="field"><span>EDA tool</span><select name="tool" value={formState.tool} onChange={onChange}><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label>
-                <label className="field"><span>License</span><select name="license" value={formState.license} onChange={onChange}><option>CERN-OHL-S</option><option>CERN-OHL-W</option><option>MIT</option><option>Apache-2.0</option><option>GPL-3.0</option></select></label>
-              </div>
-              <label className="field"><span>Short summary</span><textarea required name="summary" value={formState.summary} onChange={onChange} rows="3" /></label>
-              <label className="field"><span>Detailed description</span><textarea name="description" value={formState.description} onChange={onChange} rows="5" /></label>
-              <div className="form-grid">
-                <label className="field"><span>Tags</span><input name="tags" value={formState.tags} onChange={onChange} placeholder="RFID, audio, Linux SBC" /></label>
-                <label className="field"><span>Category</span><input name="category" value={formState.category} onChange={onChange} placeholder="RF, Audio, Power" /></label>
-              </div>
-              <div className="upload-bucket-grid">
-                <UploadBucket
-                  icon={<Archive size={18} />}
-                  title="Gerber ZIP"
-                  help="Required. Upload the zipped manufacturing package that drives the 3D board preview."
-                  accept=".zip"
-                  onChange={onGerberChange}
-                  files={gerberZipFile ? [gerberZipFile] : []}
-                  required
-                />
-                <UploadBucket
-                  icon={<FileText size={18} />}
-                  title="Documentation"
-                  help="Optional. PDFs, images, notes, assembly instructions, or other documentation."
-                  accept=".pdf,.md,.txt,.doc,.docx,.png,.jpg,.jpeg,.webp,.svg"
-                  multiple
-                  onChange={onDocumentationChange}
-                  files={documentationFiles}
-                />
-                <UploadBucket
-                  icon={<FolderOpen size={18} />}
-                  title="Project files / other"
-                  help="Optional. Native CAD files, schematics, source files, and anything else useful to builders."
-                  accept=".kicad_pcb,.kicad_sch,.sch,.pcbdoc,.prjpcb,.zip,.step,.stp,.brd,.dsn,.txt"
-                  multiple
-                  onChange={onProjectFilesChange}
-                  files={projectFiles}
-                />
-              </div>
-              <label className="toggle-row">
-                <div><strong>Publish publicly</strong><p>Public projects appear in Explore immediately.</p></div>
-                <input type="checkbox" name="isPublic" checked={formState.isPublic} onChange={onChange} />
-              </label>
-              <div className="status-inline">
-                <span>{[gerberZipFile, ...documentationFiles, ...projectFiles].filter(Boolean).length} file{[gerberZipFile, ...documentationFiles, ...projectFiles].filter(Boolean).length === 1 ? '' : 's'} selected</span>
-                <span>{totalSizeLabel}</span>
-              </div>
-              {message ? <div className={message.includes('published') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}
-              <button className="button button-primary" type="submit" disabled={saving || !API_BASE_URL}>{saving ? 'Publishing…' : 'Publish project'}</button>
-            </form>
-          </SignedIn>
-        </div>
-      </div>
-    </section>
+    <section className="section"><div className="container publish-layout"><div><div className="section-heading"><span className="eyebrow">Upload</span><h1>Publish a hardware project.</h1><p className="hero-copy">Use the Gerber ZIP as the main required upload, then add documentation and project files if you want. The board preview is a full interactive WebGL scene generated from the Gerber ZIP bundle.</p></div>{gerberPreview ? <FilePreview preview={gerberPreview} /> : <div className="empty-state">Add a Gerber ZIP to generate the interactive board preview.</div>}</div><div><SignedOut><div className="hero-surface"><h3>Sign in first</h3><p>You need an account to publish and own a project.</p><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn><form className="publish-form" onSubmit={onSubmit}><div className="form-grid"><label className="field"><span>Project title</span><input required name="title" value={formState.title} onChange={onChange} /></label><label className="field"><span>Author name</span><input required name="authorName" value={formState.authorName} onChange={onChange} /></label><label className="field"><span>EDA tool</span><select name="tool" value={formState.tool} onChange={onChange}><option>KiCad</option><option>Altium</option><option>Eagle</option><option>Other</option></select></label><label className="field"><span>License</span><select name="license" value={formState.license} onChange={onChange}><option>CERN-OHL-S</option><option>CERN-OHL-W</option><option>MIT</option><option>Apache-2.0</option><option>GPL-3.0</option></select></label></div><label className="field"><span>Short summary</span><textarea required name="summary" value={formState.summary} onChange={onChange} rows="3" /></label><label className="field"><span>Detailed description</span><textarea name="description" value={formState.description} onChange={onChange} rows="5" /></label><div className="form-grid"><label className="field"><span>Tags</span><input name="tags" value={formState.tags} onChange={onChange} placeholder="RFID, audio, Linux SBC" /></label><label className="field"><span>Category</span><input name="category" value={formState.category} onChange={onChange} placeholder="RF, Audio, Power" /></label></div><div className="upload-bucket-grid"><UploadBucket icon={<Archive size={18} />} title="Gerber ZIP" help="Required. Upload the zipped manufacturing package that drives the 3D board preview." accept=".zip" onChange={onGerberChange} files={gerberZipFile ? [gerberZipFile] : []} required /><UploadBucket icon={<FileText size={18} />} title="Documentation" help="Optional. PDFs, images, notes, assembly instructions, or other documentation." accept=".pdf,.md,.txt,.doc,.docx,.png,.jpg,.jpeg,.webp,.svg" multiple onChange={(e) => setDocumentationFiles(Array.from(e.target.files || []))} files={documentationFiles} /><UploadBucket icon={<FolderOpen size={18} />} title="Project files / other" help="Optional. Native CAD files, schematics, source files, and anything else useful to builders." accept=".kicad_pcb,.kicad_sch,.sch,.pcbdoc,.prjpcb,.zip,.step,.stp,.brd,.dsn,.txt" multiple onChange={(e) => setProjectFiles(Array.from(e.target.files || []))} files={projectFiles} /></div><label className="toggle-row"><div><strong>Publish publicly</strong><p>Public projects appear in Explore immediately.</p></div><input type="checkbox" name="isPublic" checked={formState.isPublic} onChange={onChange} /></label><div className="status-inline"><span>{[gerberZipFile, ...documentationFiles, ...projectFiles].filter(Boolean).length} file{[gerberZipFile, ...documentationFiles, ...projectFiles].filter(Boolean).length === 1 ? '' : 's'} selected</span><span>{totalSizeLabel}</span></div>{message ? <div className={message.includes('published') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}<button className="button button-primary" type="submit" disabled={saving || !API_BASE_URL}>{saving ? 'Publishing…' : 'Publish project'}</button></form></SignedIn></div></div></section>
   );
 }
 
@@ -1061,18 +351,12 @@ function ProjectPage({ refreshProjects }) {
         const primaryFile = getPrimaryGerberFile(nextProject.files || []);
         if (primaryFile) {
           setSelectedFileId(primaryFile.id);
-          try {
-            if (active) setPreview(await buildPreviewFromRemoteFile(primaryFile));
-          } catch {
-            if (active) setPreview(null);
-          }
+          try { if (active) setPreview(await buildPreviewFromRemoteFile(primaryFile)); } catch { if (active) setPreview(null); }
         }
       })
       .catch((error) => active && setMessage(error.message || 'Could not load the project.'))
       .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [projectId]);
 
   async function handleFork() {
@@ -1089,8 +373,7 @@ function ProjectPage({ refreshProjects }) {
   }
 
   async function handleDelete() {
-    if (!project) return;
-    if (!window.confirm(`Delete "${project.title}"? This cannot be undone.`)) return;
+    if (!project || !window.confirm(`Delete "${project.title}"? This cannot be undone.`)) return;
     setDeleting(true);
     setMessage('');
     try {
@@ -1106,15 +389,6 @@ function ProjectPage({ refreshProjects }) {
     }
   }
 
-  async function selectFile(file) {
-    setSelectedFileId(file.id);
-    try {
-      setPreview(await buildPreviewFromRemoteFile(file));
-    } catch {
-      setPreview(null);
-    }
-  }
-
   if (loading) return <section className="section"><div className="container"><div className="empty-state">Loading project…</div></div></section>;
   if (!project) return <section className="section"><div className="container"><div className="status-banner status-banner-error">{message || 'Project not found.'}</div></div></section>;
 
@@ -1122,59 +396,7 @@ function ProjectPage({ refreshProjects }) {
   const filesByGroup = groupFiles(project.files || []);
 
   return (
-    <section className="section">
-      <div className="container project-layout">
-        <div>
-          <div className="hero-surface">
-            <div className="project-hero-top">
-              <div>
-                <div className="hero-badge">{project.category || 'General'}</div>
-                <h1>{project.title}</h1>
-                <p className="hero-copy">{project.description || project.summary}</p>
-              </div>
-              <div className="project-meta-box">
-                <span className="chip chip-muted">{project.tool}</span>
-                <span className="chip chip-muted">{project.license}</span>
-              </div>
-            </div>
-            <div className="meta-grid">
-              <div><span className="meta-label">Author</span><strong>{project.authorName || 'OpenPCB creator'}</strong></div>
-              <div><span className="meta-label">Updated</span><strong>{formatDate(project.updated)}</strong></div>
-              <div><span className="meta-label">Files</span><strong>{project.files?.length || 0}</strong></div>
-            </div>
-            <div className="tag-row">{(project.tags || []).map((tag) => <span key={tag} className="chip chip-soft">{tag}</span>)}</div>
-            <div className="button-row">
-              <SignedIn>
-                {!isOwner ? <button className="button button-primary" onClick={handleFork}><GitFork size={16} />Fork project</button> : <Link className="button button-secondary" to="/dashboard">Go to dashboard</Link>}
-                {isOwner ? <button type="button" className="button button-danger" onClick={handleDelete} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete project'}</button> : null}
-              </SignedIn>
-              <SignedOut><SignInButton mode="modal"><button className="button button-primary">Sign in to fork</button></SignInButton></SignedOut>
-            </div>
-            {message ? <div className={message.includes('Forked') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}
-          </div>
-          {preview ? <FilePreview preview={preview} /> : null}
-        </div>
-        <aside className="sidebar-card">
-          <h3>Project files</h3>
-          {['gerber_zip', 'documentation', 'project_files'].map((group) => filesByGroup[group]?.length ? (
-            <div key={group} className="file-group">
-              <div className="file-group-title">{fileGroupLabel(group)}</div>
-              <div className="field">
-                {filesByGroup[group].map((file) => (
-                  <button key={file.id} className={selectedFileId === file.id ? 'file-row file-row-active' : 'file-row'} onClick={() => selectFile(file)}>
-                    <span>{file.name}</span>
-                    <span>{file.sizeLabel}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null)}
-          <div className="field">
-            {(project.files || []).map((file) => <a key={`download-${file.id}`} className="download-link" href={file.url} target="_blank" rel="noreferrer"><Download size={14} />Download {file.name}</a>)}
-          </div>
-        </aside>
-      </div>
-    </section>
+    <section className="section"><div className="container project-layout"><div><div className="hero-surface"><div className="project-hero-top"><div><div className="hero-badge">{project.category || 'General'}</div><h1>{project.title}</h1><p className="hero-copy">{project.description || project.summary}</p></div><div className="project-meta-box"><span className="chip chip-muted">{project.tool}</span><span className="chip chip-muted">{project.license}</span></div></div><div className="meta-grid"><div><span className="meta-label">Author</span><strong>{project.authorName || 'OpenPCB creator'}</strong></div><div><span className="meta-label">Updated</span><strong>{formatDate(project.updated)}</strong></div><div><span className="meta-label">Files</span><strong>{project.files?.length || 0}</strong></div></div><div className="tag-row">{(project.tags || []).map((tag) => <span key={tag} className="chip chip-soft">{tag}</span>)}</div><div className="button-row"><SignedIn>{!isOwner ? <button className="button button-primary" onClick={handleFork}><GitFork size={16} />Fork project</button> : <Link className="button button-secondary" to="/dashboard">Go to dashboard</Link>}{isOwner ? <button type="button" className="button button-danger" onClick={handleDelete} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete project'}</button> : null}</SignedIn><SignedOut><SignInButton mode="modal"><button className="button button-primary">Sign in to fork</button></SignInButton></SignedOut></div>{message ? <div className={message.includes('Forked') ? 'status-banner status-banner-success' : 'status-banner status-banner-error'}>{message}</div> : null}</div>{preview ? <FilePreview preview={preview} /> : null}</div><aside className="sidebar-card"><h3>Project files</h3>{['gerber_zip', 'documentation', 'project_files'].map((group) => filesByGroup[group]?.length ? <div key={group} className="file-group"><div className="file-group-title">{fileGroupLabel(group)}</div><div className="field">{filesByGroup[group].map((file) => <button key={file.id} className={selectedFileId === file.id ? 'file-row file-row-active' : 'file-row'} onClick={async () => { setSelectedFileId(file.id); try { setPreview(await buildPreviewFromRemoteFile(file)); } catch { setPreview(null); } }}><span>{file.name}</span><span>{file.sizeLabel}</span></button>)}</div></div> : null)}<div className="field">{(project.files || []).map((file) => <a key={`download-${file.id}`} className="download-link" href={file.url} target="_blank" rel="noreferrer"><Download size={14} />Download {file.name}</a>)}</div></aside></div></section>
   );
 }
 
@@ -1196,56 +418,13 @@ function DashboardPage({ projects, loading, error, refreshProjects }) {
   }
 
   return (
-    <section className="section">
-      <div className="container">
-        <div className="section-heading section-heading-inline">
-          <div>
-            <span className="eyebrow">Dashboard</span>
-            <h1>Your projects</h1>
-            <p className="hero-copy">Everything you have published or forked lives here.</p>
-          </div>
-          <Link className="button button-primary" to="/publish">Upload another project</Link>
-        </div>
-        <SignedOut>
-          <div className="hero-surface">
-            <h3>Sign in to view your dashboard</h3>
-            <SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton>
-          </div>
-        </SignedOut>
-        <SignedIn>
-          {error ? <div className="status-banner status-banner-error">{error}</div> : null}
-          {loading ? <div className="empty-state">Loading your projects…</div> : projects.length ? <div className="project-grid">{projects.map((project) => <ProjectCard key={project.id} project={project} onDelete={handleDelete} deleting={deletingId === project.id} />)}</div> : <div className="empty-state">You have not published anything yet.</div>}
-        </SignedIn>
-      </div>
-    </section>
+    <section className="section"><div className="container"><div className="section-heading section-heading-inline"><div><span className="eyebrow">Dashboard</span><h1>Your projects</h1><p className="hero-copy">Everything you have published or forked lives here.</p></div><Link className="button button-primary" to="/publish">Upload another project</Link></div><SignedOut><div className="hero-surface"><h3>Sign in to view your dashboard</h3><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn>{error ? <div className="status-banner status-banner-error">{error}</div> : null}{loading ? <div className="empty-state">Loading your projects…</div> : projects.length ? <div className="project-grid">{projects.map((project) => <ProjectCard key={project.id} project={project} onDelete={handleDelete} deleting={deletingId === project.id} />)}</div> : <div className="empty-state">You have not published anything yet.</div>}</SignedIn></div></section>
   );
 }
 
 function LoginPage() {
   return (
-    <section className="section">
-      <div className="container">
-        <SignedOut>
-          <div className="auth-card">
-            <div className="section-heading">
-              <span className="eyebrow">Account</span>
-              <h1>Sign in to publish, fork, and manage projects</h1>
-              <p className="hero-copy">Use your account to upload boards, save work, and manage your projects.</p>
-            </div>
-            <SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton>
-          </div>
-        </SignedOut>
-        <SignedIn>
-          <div className="auth-card">
-            <div className="section-heading">
-              <span className="eyebrow">Account</span>
-              <h1>Manage your profile</h1>
-            </div>
-            <UserProfile />
-          </div>
-        </SignedIn>
-      </div>
-    </section>
+    <section className="section"><div className="container"><SignedOut><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Sign in to publish, fork, and manage projects</h1><p className="hero-copy">Use your account to upload boards, save work, and manage your projects.</p></div><SignInButton mode="modal"><button className="button button-primary">Sign in</button></SignInButton></div></SignedOut><SignedIn><div className="auth-card"><div className="section-heading"><span className="eyebrow">Account</span><h1>Manage your profile</h1></div><UserProfile /></div></SignedIn></div></section>
   );
 }
 
@@ -1292,9 +471,7 @@ export default function App() {
     }
   }
 
-  useEffect(() => {
-    refreshProjects();
-  }, [user?.id]);
+  useEffect(() => { refreshProjects(); }, [user?.id]);
 
   return (
     <ClerkLoaded>
