@@ -254,13 +254,6 @@ function HomePage({ projects, loading }) {
               <div className="stat-card"><span className="stat-label">Preview support</span><strong>Gerber + ZIP</strong></div>
               <div className="stat-card"><span className="stat-label">Best for</span><strong>Open hardware</strong></div>
             </div>
-            <div className="image-placeholder image-placeholder-hero">
-              <ImageIcon size={22} />
-              <div>
-                <strong>Hero image area</strong>
-                <p>Add a board render, workspace photo, or exploded PCB mockup here.</p>
-              </div>
-            </div>
           </div>
         </div>
       </section>
