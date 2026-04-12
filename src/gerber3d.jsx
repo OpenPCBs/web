@@ -450,6 +450,21 @@ function disposeMaterial(material) {
   material.dispose();
 }
 
+function createSurfaceMaterial(texture) {
+  return new THREE.MeshStandardMaterial({
+    map: texture,
+    color: 0xffffff,
+    roughness: 0.56,
+    metalness: 0.1,
+    side: THREE.FrontSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -4,
+    depthTest: true,
+    depthWrite: true,
+  });
+}
+
 function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   if (!canvas || !previewData) return () => {};
 
@@ -460,6 +475,7 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   const boardHeight = spanY;
   const boardLongest = Math.max(boardWidth, boardHeight);
   const thickness = 1.6;
+  const surfaceLift = Math.max(thickness * 0.06, 0.12);
   const centerX = (boardBounds.minX + boardBounds.maxX) / 2;
   const centerY = (boardBounds.minY + boardBounds.maxY) / 2;
 
@@ -469,7 +485,7 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, Math.max(boardLongest * 50, 300));
   camera.up.set(0, 0, 1);
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true, logarithmicDepthBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
   else renderer.outputEncoding = THREE.sRGBEncoding;
@@ -478,6 +494,7 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   const boardGeometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 28, steps: 1 });
   boardGeometry.translate(0, 0, -thickness / 2);
   const boardMesh = new THREE.Mesh(boardGeometry, new THREE.MeshStandardMaterial({ color: 0x0e694b, roughness: 0.72, metalness: 0.08 }));
+  boardMesh.renderOrder = 0;
   scene.add(boardMesh);
 
   const topTexture = new THREE.CanvasTexture(buildBoardTexture(previewData, 'top'));
@@ -495,14 +512,16 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   bottomTexture.anisotropy = anisotropy;
 
   const topGeometry = new THREE.ShapeGeometry(shape, 40);
-  topGeometry.translate(0, 0, thickness / 2 + 0.001);
-  const topMesh = new THREE.Mesh(topGeometry, new THREE.MeshStandardMaterial({ map: topTexture, color: 0xffffff, roughness: 0.56, metalness: 0.1, side: THREE.FrontSide }));
+  topGeometry.translate(0, 0, thickness / 2 + surfaceLift);
+  const topMesh = new THREE.Mesh(topGeometry, createSurfaceMaterial(topTexture));
+  topMesh.renderOrder = 2;
   scene.add(topMesh);
 
   const bottomGeometry = new THREE.ShapeGeometry(shape, 40);
-  bottomGeometry.translate(0, 0, -thickness / 2 - 0.001);
-  const bottomMesh = new THREE.Mesh(bottomGeometry, new THREE.MeshStandardMaterial({ map: bottomTexture, color: 0xffffff, roughness: 0.56, metalness: 0.1, side: THREE.FrontSide }));
+  bottomGeometry.translate(0, 0, -thickness / 2 - surfaceLift);
+  const bottomMesh = new THREE.Mesh(bottomGeometry, createSurfaceMaterial(bottomTexture));
   bottomMesh.rotateY(Math.PI);
+  bottomMesh.renderOrder = 2;
   scene.add(bottomMesh);
 
   for (const drill of previewData.drills.slice(0, 800)) {
@@ -513,6 +532,7 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
     holeGeometry.rotateX(Math.PI / 2);
     const holeMesh = new THREE.Mesh(holeGeometry, new THREE.MeshStandardMaterial({ color: 0x0b1120, roughness: 0.4, metalness: 0.2 }));
     holeMesh.position.set(localX, localY, 0);
+    holeMesh.renderOrder = 1;
     scene.add(holeMesh);
   }
 
