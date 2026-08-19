@@ -18,7 +18,7 @@ export default async function DesignDetailPage({ params }: { params: RouteParams
   const { slug } = await params;
   return (
     <>
-      <SiteHeader active="marketplace" />
+      <SiteHeader active="works" />
       <DivisionBanner />
       <main className={styles.page}>
         <div className={styles.container}>

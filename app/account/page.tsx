@@ -30,7 +30,7 @@ async function AccountGate({ checkout, sessionId, returnTo }: { checkout?: strin
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader active="account" />
       <AccountClient
         user={{ displayName: user.displayName, email: user.email }}
         checkout={checkout}

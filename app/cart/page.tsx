@@ -23,7 +23,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader active="store" />
       <main className={styles.page}>
         <div className={styles.container}>
           <header className={styles.heading}>

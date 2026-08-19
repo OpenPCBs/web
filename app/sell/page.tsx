@@ -25,7 +25,7 @@ export default async function SellPage({ searchParams }: { searchParams: SellSea
 
   return (
     <>
-      <SiteHeader active="marketplace" />
+      <SiteHeader active="works" />
       <DivisionBanner />
       <main className={styles.page}>
         <div className={styles.container}>

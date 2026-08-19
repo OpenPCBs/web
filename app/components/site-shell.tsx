@@ -2,14 +2,14 @@ import Link from "./native-link";
 import { Search, UserRound } from "lucide-react";
 import { CartIndicator } from "./cart-indicator";
 
-type HeaderSection = "store" | "marketplace" | "viewer" | "lab";
+type HeaderSection = "store" | "contact" | "account" | "docs" | "works";
 
 export function SiteHeader({ active }: { active?: HeaderSection }) {
   return (
     <header className="commerce-header">
       <div className="utility-bar">
         <div className="shell utility-inner">
-          <nav aria-label="Customer service"><Link href="/contact?type=support">Contact &amp; support</Link><Link href="/account#orders">Order status</Link><Link href="/contact?type=quote">Request a quote</Link><Link href="/docs">Resources</Link></nav>
+          <nav aria-label="Customer service"><Link href="/contact">Contact &amp; quotes</Link><Link href="/account#orders">Order status</Link><Link href="/docs">Resources</Link></nav>
           <span>Specialist sourcing for engineering teams</span>
         </div>
       </div>
@@ -27,12 +27,11 @@ export function SiteHeader({ active }: { active?: HeaderSection }) {
       </div>
       <div className="category-nav">
         <nav className="shell" aria-label="Product navigation">
-          <Link className={active === "store" ? "active" : ""} href="/store"><b>Shop products</b></Link>
-          <Link href="/contact?type=quote">Request a quote</Link>
-          <Link href="/contact?type=sourcing">Specialist sourcing</Link>
-          <Link href="/account#orders">Order status</Link>
-          <Link href="/contact?type=support">Contact support</Link>
-          <Link className={(active === "marketplace" || active === "viewer" || active === "lab") ? "active works-link" : "works-link"} href="/marketplace">Thevenin Works</Link>
+          <Link className={active === "store" ? "active" : ""} aria-current={active === "store" ? "page" : undefined} href="/store"><b>Shop products</b></Link>
+          <Link className={active === "contact" ? "active" : ""} aria-current={active === "contact" ? "page" : undefined} href="/contact">Contact &amp; quotes</Link>
+          <Link className={active === "account" ? "active" : ""} aria-current={active === "account" ? "page" : undefined} href="/account#orders">Order status</Link>
+          <Link className={active === "docs" ? "active" : ""} aria-current={active === "docs" ? "page" : undefined} href="/docs">Resources</Link>
+          <Link className={active === "works" ? "active works-link" : "works-link"} aria-current={active === "works" ? "page" : undefined} href="/marketplace">Thevenin Works</Link>
         </nav>
       </div>
     </header>
@@ -55,13 +54,13 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="shell footer-help">
         <div><b>Need help selecting equipment?</b><span>Send the application, operating range, and required delivery date.</span></div>
-        <Link href="/contact?type=support">Contact an applications specialist <span>→</span></Link>
+        <Link href="/contact">Contact &amp; quotes <span>→</span></Link>
       </div>
       <div className="shell footer-grid">
         <div><Link className="wordmark footer-wordmark" href="/"><span className="wordmark-symbol">V<sub>TH</sub></span><span><b>THEVENIN</b><small>ELECTRONICS SUPPLY</small></span></Link><p>One practical source for specialized electronics, test equipment, engineering designs, and verification.</p></div>
-        <div><b>Shop</b><Link href="/store">All products</Link><Link href="/contact?type=sourcing">Specialist sourcing</Link><Link href="/contact?type=quote">Request a quote</Link><Link href="/account#orders">Order status</Link></div>
+        <div><b>Shop</b><Link href="/store">All products</Link><Link href="/contact">Contact &amp; quotes</Link><Link href="/account#orders">Order status</Link></div>
         <div><b>Thevenin Works</b><Link href="/marketplace">Design marketplace</Link><Link href="/viewer">Gerber workbench</Link><Link href="/lab">Paid lab verification</Link><Link href="/sell">Publish a design</Link></div>
-        <div><b>Information</b><Link href="/docs">Trust &amp; policies</Link><Link href="/docs#storage">File privacy</Link><Link href="/contact?type=support">Support</Link><Link href="https://github.com/OpenPCBs/web">GitHub</Link></div>
+        <div><b>Information</b><Link href="/docs">Trust &amp; policies</Link><Link href="/docs#storage">File privacy</Link><Link href="https://github.com/OpenPCBs/web">GitHub</Link></div>
       </div>
       <div className="shell footer-legal"><span>© 2026 Thevenin</span><span>Products are listed only after they are reviewed and published.</span></div>
     </footer>

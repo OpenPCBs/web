@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function ViewerPage() {
   return (
     <>
-      <SiteHeader active="viewer" />
+      <SiteHeader active="works" />
       <DivisionBanner />
       <main className="gerber-page">
         <section className="gerber-page-intro shell">

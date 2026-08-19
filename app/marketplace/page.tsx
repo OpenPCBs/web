@@ -23,7 +23,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   const sort = first(params.sort, 20);
   return (
     <>
-      <SiteHeader active="marketplace" />
+      <SiteHeader active="works" />
       <DivisionBanner />
       <main className={styles.page}>
         <div className={styles.container}>

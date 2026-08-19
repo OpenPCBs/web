@@ -27,7 +27,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Cont
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader active="contact" />
       <main className="contact-page">
         <section className="contact-hero shell">
           <div>
