@@ -1,11 +1,9 @@
 import { and, desc, eq, like, or } from "drizzle-orm";
-import { getDb, getOptionalDb } from "@/db";
-import { seededDesigns } from "@/db/catalog";
+import { getDb } from "@/db";
 import { designs, revisions, users } from "@/db/schema";
 import {
   ApiError,
   handleApiError,
-  isMissingStorageError,
   optionalString,
   persistUser,
   readJsonObject,
@@ -14,27 +12,51 @@ import {
   slugify,
 } from "../_lib/http";
 
-function fallbackDesigns(url: URL) {
-  const query = url.searchParams.get("q")?.trim().toLowerCase();
-  const category = url.searchParams.get("category")?.trim().toLowerCase();
-  return seededDesigns.filter((design) => {
-    const matchesQuery =
-      !query ||
-      design.title.toLowerCase().includes(query) ||
-      design.summary.toLowerCase().includes(query);
-    const matchesCategory = !category || design.category.toLowerCase() === category;
-    return matchesQuery && matchesCategory;
-  });
-}
-
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const db = getOptionalDb();
-  if (!db) {
-    return Response.json({ designs: fallbackDesigns(url), source: "seed" });
+  if (url.searchParams.get("mine") === "1") {
+    try {
+      const user = requireApiUser(request);
+      const db = getDb();
+      await persistUser(db, user);
+      const query = url.searchParams.get("q")?.trim().slice(0, 100);
+      const category = url.searchParams.get("category")?.trim().slice(0, 80);
+      const conditions = [eq(designs.ownerId, user.userId)];
+      if (query) {
+        conditions.push(
+          or(
+            like(designs.title, `%${query}%`),
+            like(designs.summary, `%${query}%`),
+          )!,
+        );
+      }
+      if (category) conditions.push(eq(designs.category, category));
+      const rows = await db
+        .select({
+          design: designs,
+          currentRevision: revisions,
+          ownerDisplayName: users.displayName,
+        })
+        .from(designs)
+        .leftJoin(revisions, eq(designs.currentRevisionId, revisions.id))
+        .leftJoin(users, eq(designs.ownerId, users.id))
+        .where(and(...conditions))
+        .orderBy(desc(designs.updatedAt))
+        .limit(100);
+      return Response.json({
+        designs: rows.map(({ design, currentRevision, ownerDisplayName }) => ({
+          ...design,
+          owner: { displayName: ownerDisplayName ?? user.displayName },
+          currentRevision,
+        })),
+        source: "database",
+      });
+    } catch (error) {
+      return handleApiError(error);
+    }
   }
-
   try {
+    const db = getDb();
     const query = url.searchParams.get("q")?.trim().slice(0, 100);
     const category = url.searchParams.get("category")?.trim().slice(0, 80);
     const conditions = [eq(designs.publicationStatus, "published")];
@@ -61,10 +83,6 @@ export async function GET(request: Request) {
       .orderBy(desc(designs.featured), desc(designs.updatedAt))
       .limit(100);
 
-    if (rows.length === 0) {
-      return Response.json({ designs: fallbackDesigns(url), source: "seed" });
-    }
-
     return Response.json({
       designs: rows.map(({ design, currentRevision, ownerDisplayName }) => ({
         ...design,
@@ -74,9 +92,6 @@ export async function GET(request: Request) {
       source: "database",
     });
   } catch (error) {
-    if (isMissingStorageError(error)) {
-      return Response.json({ designs: fallbackDesigns(url), source: "seed" });
-    }
     return handleApiError(error);
   }
 }

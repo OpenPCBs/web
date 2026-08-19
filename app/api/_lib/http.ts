@@ -1,5 +1,6 @@
 import { getChatGPTUserFromRequest, type ChatGPTUser } from "@/app/chatgpt-auth";
 import type { Database } from "@/db";
+import { eq } from "drizzle-orm";
 import { users } from "@/db/schema";
 
 export class ApiError extends Error {
@@ -25,6 +26,14 @@ export function requireApiUser(request: Request): ChatGPTUser {
 }
 
 export async function persistUser(db: Database, user: ChatGPTUser) {
+  const [existing] = await db
+    .select({ status: users.status })
+    .from(users)
+    .where(eq(users.id, user.userId))
+    .limit(1);
+  if (existing?.status === "suspended") {
+    throw new ApiError(403, "account_suspended", "This account is suspended.");
+  }
   const now = new Date().toISOString();
   await db
     .insert(users)
@@ -44,6 +53,15 @@ export async function persistUser(db: Database, user: ChatGPTUser) {
         updatedAt: now,
       },
     });
+}
+
+export async function requireActiveApiUser(
+  request: Request,
+  db: Database,
+): Promise<ChatGPTUser> {
+  const user = requireApiUser(request);
+  await persistUser(db, user);
+  return user;
 }
 
 export function handleApiError(error: unknown): Response {

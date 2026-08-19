@@ -6,6 +6,7 @@ import {
   ApiError,
   handleApiError,
   readJsonObject,
+  requireActiveApiUser,
   requireApiUser,
 } from "../../_lib/http";
 
@@ -21,14 +22,14 @@ export async function HEAD(request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const user = requireApiUser(request);
+    const db = getDb();
+    const user = await requireActiveApiUser(request, db);
     const { id } = await context.params;
     const body = await readJsonObject(request);
     const visibility = body.visibility;
     if (visibility !== "private" && visibility !== "public") {
       throw new ApiError(400, "invalid_field", "visibility must be private or public.");
     }
-    const db = getDb();
     const [row] = await fileAccessRow(db, id);
     if (!row || row.file.ownerId !== user.userId) {
       throw new ApiError(404, "not_found", "File not found.");

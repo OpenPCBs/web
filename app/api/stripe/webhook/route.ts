@@ -1,4 +1,10 @@
-import { getBindings, getDb } from "@/db";
+import { getDb } from "@/db";
+import { getEffectiveStripeSecrets } from "@/app/admin-settings";
+import {
+  applyFailedProductCheckoutSession,
+  applyPaidProductCheckoutSession,
+  type ProductCheckoutSession,
+} from "../../checkout/checkout-service";
 import {
   applyPaidStripeSession,
   type StripeCheckoutSession,
@@ -11,11 +17,12 @@ type StripeEvent = {
 };
 
 export async function POST(request: Request) {
-  const webhookSecret = getBindings().STRIPE_WEBHOOK_SECRET?.trim();
+  const db = getDb();
+  const webhookSecret = (await getEffectiveStripeSecrets(db)).webhookSecret;
   if (!webhookSecret) {
     return Response.json(
       {
-        error: "Stripe webhooks are not configured. Set STRIPE_WEBHOOK_SECRET.",
+        error: "Stripe webhooks are not configured.",
         code: "webhook_not_configured",
       },
       { status: 503 },
@@ -45,9 +52,31 @@ export async function POST(request: Request) {
     const session = event.data?.object;
     if (session) {
       try {
-        await applyPaidStripeSession(getDb(), session);
+        if (session.metadata?.verification_request_id) {
+          await applyPaidStripeSession(db, session);
+        }
+        if (session.metadata?.order_id) {
+          await applyPaidProductCheckoutSession(
+            db,
+            session as ProductCheckoutSession,
+          );
+        }
       } catch (error) {
         console.error("Unable to apply Stripe checkout event", event.id, error);
+        return Response.json({ error: "Unable to apply event." }, { status: 500 });
+      }
+    }
+  }
+  if (event.type === "checkout.session.async_payment_failed") {
+    const session = event.data?.object;
+    if (session?.metadata?.order_id) {
+      try {
+        await applyFailedProductCheckoutSession(
+          db,
+          session as ProductCheckoutSession,
+        );
+      } catch (error) {
+        console.error("Unable to apply failed Stripe checkout event", event.id, error);
         return Response.json({ error: "Unable to apply event." }, { status: 500 });
       }
     }

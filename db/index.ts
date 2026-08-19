@@ -8,6 +8,8 @@ type RuntimeBindings = {
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   APP_ORIGIN?: string;
+  ADMIN_EMAILS?: string;
+  ADMIN_SETTINGS_ENCRYPTION_KEY?: string;
   LAB_RELEASE_REVIEW_PRICE_CENTS?: string;
   LAB_BENCH_REPRODUCTION_PRICE_CENTS?: string;
 };

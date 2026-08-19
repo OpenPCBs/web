@@ -1,6 +1,10 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getBindings, type Database } from "@/db";
 import {
+  getAppOrigin,
+  getEffectiveStripeSecrets,
+} from "@/app/admin-settings";
+import {
   designs,
   quotes,
   revisions,
@@ -191,27 +195,19 @@ export async function createVerificationRequest(
   return { request: createdRequest, quote: createdQuote, created: true };
 }
 
-export function getStripeCheckoutConfig():
+export async function getStripeCheckoutConfig(
+  db: Database,
+): Promise<
   | { secretKey: string; origin: string }
-  | { missing: string[] } {
-  const bindings = getBindings();
+  | { missing: string[] }
+> {
   const missing: string[] = [];
-  const secretKey = bindings.STRIPE_SECRET_KEY?.trim();
-  const configuredOrigin = bindings.APP_ORIGIN?.trim();
-  if (!secretKey) missing.push("STRIPE_SECRET_KEY");
-  if (!configuredOrigin) missing.push("APP_ORIGIN");
+  const effective = await getEffectiveStripeSecrets(db);
+  const origin = await getAppOrigin(db);
+  if (!effective.secretKey) missing.push("a Stripe secret key");
+  if (!origin) missing.push("a public site origin");
   if (missing.length) return { missing };
-
-  try {
-    const parsed = new URL(configuredOrigin!);
-    const local = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-    if (parsed.protocol !== "https:" && !(local && parsed.protocol === "http:")) {
-      return { missing: ["APP_ORIGIN (must be an HTTPS origin)"] };
-    }
-    return { secretKey: secretKey!, origin: parsed.origin };
-  } catch {
-    return { missing: ["APP_ORIGIN (must be a valid origin)"] };
-  }
+  return { secretKey: effective.secretKey!, origin: origin! };
 }
 
 export async function stripeRequest<T>(

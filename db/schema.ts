@@ -17,6 +17,13 @@ export const users = sqliteTable(
     email: text("email").notNull(),
     displayName: text("display_name").notNull(),
     fullName: text("full_name"),
+    role: text("role", { enum: ["customer", "staff", "admin"] })
+      .notNull()
+      .default("customer"),
+    status: text("status", { enum: ["active", "suspended"] })
+      .notNull()
+      .default("active"),
+    lastSeenAt: text("last_seen_at"),
     createdAt: timestamp("created_at"),
     updatedAt: timestamp("updated_at"),
   },
@@ -161,17 +168,25 @@ export const products = sqliteTable(
     })
       .notNull()
       .default("in_stock"),
+    stockQuantity: integer("stock_quantity").notNull().default(0),
     imageUrl: text("image_url"),
+    imageR2Key: text("image_r2_key"),
+    imageUrlsJson: text("image_urls_json").notNull().default("[]"),
     sourceUrl: text("source_url"),
     featured: integer("featured", { mode: "boolean" }).notNull().default(false),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
+    status: text("status", { enum: ["draft", "published", "archived"] })
+      .notNull()
+      .default("draft"),
     createdAt: timestamp("created_at"),
     updatedAt: timestamp("updated_at"),
+    publishedAt: text("published_at"),
+    archivedAt: text("archived_at"),
   },
   (table) => [
     uniqueIndex("products_slug_unique").on(table.slug),
     uniqueIndex("products_sku_unique").on(table.sku),
-    index("products_active_idx").on(table.active, table.category),
+    index("products_active_idx").on(table.active, table.status, table.category),
   ],
 );
 
@@ -207,7 +222,7 @@ export const orders = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     status: text("status", {
-      enum: ["pending", "paid", "processing", "shipped", "completed", "cancelled", "refunded"],
+      enum: ["pending", "paid", "payment_failed", "processing", "shipped", "completed", "cancelled", "refunded"],
     })
       .notNull()
       .default("pending"),
@@ -220,6 +235,8 @@ export const orders = sqliteTable(
     checkoutSessionId: text("checkout_session_id"),
     paymentIntentId: text("payment_intent_id"),
     shippingAddressJson: text("shipping_address_json"),
+    trackingNumber: text("tracking_number"),
+    adminNote: text("admin_note"),
     createdAt: timestamp("created_at"),
     updatedAt: timestamp("updated_at"),
     paidAt: text("paid_at"),
@@ -350,6 +367,119 @@ export const verificationEvents = sqliteTable(
       table.verificationRequestId,
       table.createdAt,
     ),
+  ],
+);
+
+export const storeSettings = sqliteTable("store_settings", {
+  id: text("id").primaryKey(),
+  storeName: text("store_name").notNull().default("Thevenin Supply"),
+  supportEmail: text("support_email").notNull().default(""),
+  currency: text("currency").notNull().default("usd"),
+  publicOrigin: text("public_origin"),
+  allowedShippingCountriesJson: text("allowed_shipping_countries_json")
+    .notNull()
+    .default('["US"]'),
+  flatShippingCents: integer("flat_shipping_cents").notNull().default(0),
+  automaticTaxEnabled: integer("automatic_tax_enabled", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  checkoutEnabled: integer("checkout_enabled", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  updatedByUserId: text("updated_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at"),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const stripeSettings = sqliteTable("stripe_settings", {
+  id: text("id").primaryKey(),
+  secretKeyCiphertext: text("secret_key_ciphertext"),
+  secretKeyLast4: text("secret_key_last4"),
+  webhookSecretCiphertext: text("webhook_secret_ciphertext"),
+  webhookSecretLast4: text("webhook_secret_last4"),
+  webhookEndpointId: text("webhook_endpoint_id"),
+  webhookEndpointUrl: text("webhook_endpoint_url"),
+  lastTestedAt: text("last_tested_at"),
+  lastTestStatus: text("last_test_status", {
+    enum: ["success", "failed"],
+  }),
+  lastTestMessage: text("last_test_message"),
+  updatedByUserId: text("updated_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at"),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const adminAuditEvents = sqliteTable(
+  "admin_audit_events",
+  {
+    id: text("id").primaryKey(),
+    actorUserId: text("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    action: text("action").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id").notNull(),
+    beforeJson: text("before_json"),
+    afterJson: text("after_json"),
+    metadataJson: text("metadata_json"),
+    createdAt: timestamp("created_at"),
+  },
+  (table) => [
+    index("admin_audit_entity_idx").on(
+      table.entityType,
+      table.entityId,
+      table.createdAt,
+    ),
+    index("admin_audit_actor_idx").on(table.actorUserId, table.createdAt),
+  ],
+);
+
+export const inquiries = sqliteTable(
+  "inquiries",
+  {
+    id: text("id").primaryKey(),
+    type: text("type", {
+      enum: ["support", "quote", "sourcing", "license"],
+    }).notNull(),
+    status: text("status", {
+      enum: ["new", "in_progress", "resolved", "closed"],
+    })
+      .notNull()
+      .default("new"),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    company: text("company"),
+    phone: text("phone"),
+    subject: text("subject"),
+    message: text("message").notNull(),
+    context: text("context"),
+    productId: text("product_id").references(() => products.id, {
+      onDelete: "set null",
+    }),
+    designId: text("design_id").references(() => designs.id, {
+      onDelete: "set null",
+    }),
+    revisionId: text("revision_id").references(() => revisions.id, {
+      onDelete: "set null",
+    }),
+    adminNotes: text("admin_notes").notNull().default(""),
+    assignedToUserId: text("assigned_to_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at"),
+    updatedAt: timestamp("updated_at"),
+    resolvedAt: text("resolved_at"),
+  },
+  (table) => [
+    index("inquiries_status_idx").on(table.status, table.createdAt),
+    index("inquiries_email_idx").on(table.email, table.createdAt),
   ],
 );
 

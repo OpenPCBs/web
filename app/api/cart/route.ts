@@ -1,6 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { seededProducts } from "@/db/catalog";
 import { cartItems, products } from "@/db/schema";
 import {
   ApiError,
@@ -9,8 +8,10 @@ import {
   positiveInteger,
   readJsonObject,
   requiredString,
+  requireActiveApiUser,
   requireApiUser,
 } from "../_lib/http";
+import { serializePublicProduct } from "../products/public-product";
 
 export async function GET(request: Request) {
   try {
@@ -24,11 +25,19 @@ export async function GET(request: Request) {
       .where(eq(cartItems.userId, user.userId))
       .orderBy(desc(cartItems.updatedAt));
     const subtotalCents = rows.reduce(
-      (sum, row) => sum + row.item.quantity * row.item.unitPriceCents,
+      (sum, row) => sum + row.item.quantity * row.product.priceCents,
       0,
     );
     return Response.json({
-      items: rows.map(({ item, product }) => ({ ...item, product })),
+      items: rows.map(({ item, product }) => ({
+        id: item.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPriceCents: product.priceCents,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        product: serializePublicProduct(product),
+      })),
       subtotalCents,
       currency: rows[0]?.product.currency ?? "usd",
     });
@@ -49,14 +58,24 @@ export async function POST(request: Request) {
     const productRows = await db
       .select()
       .from(products)
-      .where(and(eq(products.id, productId), eq(products.active, true)))
+      .where(
+        and(
+          eq(products.id, productId),
+          eq(products.active, true),
+          eq(products.status, "published"),
+        ),
+      )
       .limit(1);
-    let product: typeof products.$inferSelect | undefined = productRows[0];
-    if (!product) {
-      product = await materializeSeedProduct(db, productId);
-    }
+    const product = productRows[0];
     if (!product || ["out_of_stock", "discontinued"].includes(product.stockStatus)) {
       throw new ApiError(404, "not_found", "Product is not available.");
+    }
+    if (product.stockStatus === "in_stock" && quantity > product.stockQuantity) {
+      throw new ApiError(
+        409,
+        "insufficient_stock",
+        `Only ${product.stockQuantity} unit${product.stockQuantity === 1 ? " is" : "s are"} available.`,
+      );
     }
 
     const now = new Date().toISOString();
@@ -86,7 +105,17 @@ export async function POST(request: Request) {
         ),
       )
       .limit(1);
-    return Response.json({ item: { ...item, product } });
+    return Response.json({
+      item: {
+        id: item.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPriceCents: product.priceCents,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        product: serializePublicProduct(product),
+      },
+    });
   } catch (error) {
     return handleApiError(error);
   }
@@ -94,12 +123,12 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const user = requireApiUser(request);
+    const db = getDb();
+    const user = await requireActiveApiUser(request, db);
     const productId = new URL(request.url).searchParams.get("productId")?.trim();
     if (!productId) {
       throw new ApiError(400, "invalid_field", "productId is required.");
     }
-    const db = getDb();
     await db
       .delete(cartItems)
       .where(
@@ -109,27 +138,4 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return handleApiError(error);
   }
-}
-
-async function materializeSeedProduct(
-  db: ReturnType<typeof getDb>,
-  productId: string,
-) {
-  const seed = seededProducts.find((item) => item.id === productId);
-  if (!seed) return undefined;
-  await db
-    .insert(products)
-    .values({
-      ...seed,
-      active: true,
-      sourceUrl: null,
-      updatedAt: new Date().toISOString(),
-    })
-    .onConflictDoNothing({ target: products.id });
-  const [product] = await db
-    .select()
-    .from(products)
-    .where(eq(products.id, productId))
-    .limit(1);
-  return product;
 }

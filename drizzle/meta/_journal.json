@@ -15,6 +15,20 @@
       "when": 1787117978418,
       "tag": "0001_adorable_steel_serpent",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787120316965,
+      "tag": "0002_tearful_dragon_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787121471620,
+      "tag": "0003_tranquil_exiles",
+      "breakpoints": true
     }
   ]
 }

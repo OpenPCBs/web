@@ -19,20 +19,19 @@ import {
 } from "../../_lib/verification";
 
 export async function POST(request: Request) {
-  const config = getStripeCheckoutConfig();
-  if ("missing" in config) {
-    const message = `Payment checkout is not configured. Set ${config.missing.join(" and ")} to enable paid lab verification.`;
-    return Response.json(
-      { error: message, code: "payment_not_configured", missing: config.missing },
-      { status: 503 },
-    );
-  }
-
   try {
     const user = requireApiUser(request);
     const body = await readJsonObject(request);
     const db = getDb();
     await persistUser(db, user);
+    const config = await getStripeCheckoutConfig(db);
+    if ("missing" in config) {
+      const message = `Payment checkout is not configured. Configure ${config.missing.join(" and ")} to enable paid lab verification.`;
+      return Response.json(
+        { error: message, code: "payment_not_configured", missing: config.missing },
+        { status: 503 },
+      );
+    }
 
     let verificationRequest;
     let quote;
@@ -108,7 +107,10 @@ export async function POST(request: Request) {
     const form = new URLSearchParams();
     form.set("mode", "payment");
     form.set("success_url", `${config.origin}/account?checkout=verification&session_id={CHECKOUT_SESSION_ID}`);
-    form.set("cancel_url", `${config.origin}/lab?checkout=cancelled`);
+    form.set(
+      "cancel_url",
+      `${config.origin}/lab?checkout=cancelled&requestId=${encodeURIComponent(verificationRequest.id)}&revisionId=${encodeURIComponent(verificationRequest.revisionId)}&tier=${encodeURIComponent(verificationRequest.serviceLevel.replaceAll("_", "-"))}`,
+    );
     form.set("customer_email", user.email);
     form.set("client_reference_id", verificationRequest.id);
     form.set("line_items[0][price_data][currency]", quote.currency);

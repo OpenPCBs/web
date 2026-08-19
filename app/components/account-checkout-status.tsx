@@ -17,19 +17,19 @@ export function AccountCheckoutStatus({
   sessionId?: string;
 }) {
   const [state, setState] = useState<CheckoutState | null>(
-    checkout === "verification" && sessionId
-      ? { kind: "loading", message: "Confirming your lab payment with Stripe…" }
+    (checkout === "verification" || checkout === "order") && sessionId
+      ? { kind: "loading", message: checkout === "order" ? "Confirming your order payment with Stripe…" : "Confirming your lab payment with Stripe…" }
       : null,
   );
 
   useEffect(() => {
-    if (checkout !== "verification" || !sessionId) return;
+    if ((checkout !== "verification" && checkout !== "order") || !sessionId) return;
     const controller = new AbortController();
 
     async function reconcile() {
       try {
         const response = await fetch(
-          `/api/verification/checkout/complete?session_id=${encodeURIComponent(sessionId!)}`,
+          `${checkout === "order" ? "/api/checkout/complete" : "/api/verification/checkout/complete"}?session_id=${encodeURIComponent(sessionId!)}`,
           { signal: controller.signal, cache: "no-store" },
         );
         const payload = (await response.json()) as unknown;
@@ -46,7 +46,7 @@ export function AccountCheckoutStatus({
           paid
             ? {
                 kind: "success",
-                message: "Payment confirmed. Your revision-bound verification is now queued for lab intake.",
+                message: checkout === "order" ? "Payment confirmed. Your order is now in the fulfillment queue." : "Payment confirmed. Your revision-bound verification is now queued for lab intake.",
               }
             : {
                 kind: "pending",

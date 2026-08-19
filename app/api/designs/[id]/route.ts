@@ -1,14 +1,13 @@
 import { eq, or } from "drizzle-orm";
 import { getChatGPTUserFromRequest } from "@/app/chatgpt-auth";
-import { getDb, getOptionalDb } from "@/db";
-import { seededDesigns } from "@/db/catalog";
+import { getDb } from "@/db";
 import { designs, revisions, users } from "@/db/schema";
 import {
   ApiError,
   handleApiError,
-  isMissingStorageError,
   optionalString,
   readJsonObject,
+  requireActiveApiUser,
   requireApiUser,
 } from "../../_lib/http";
 
@@ -16,10 +15,8 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
   const { id } = await context.params;
-  const db = getOptionalDb();
-  if (!db) return seededDetail(id);
-
   try {
+    const db = getDb();
     const [row] = await db
       .select({ design: designs, ownerDisplayName: users.displayName })
       .from(designs)
@@ -27,7 +24,7 @@ export async function GET(request: Request, context: RouteContext) {
       .where(or(eq(designs.id, id), eq(designs.slug, id)))
       .limit(1);
 
-    if (!row) return seededDetail(id);
+    if (!row) throw new ApiError(404, "not_found", "Design not found.");
     const user = getChatGPTUserFromRequest(request);
     if (
       row.design.publicationStatus !== "published" &&
@@ -53,17 +50,16 @@ export async function GET(request: Request, context: RouteContext) {
       source: "database",
     });
   } catch (error) {
-    if (isMissingStorageError(error)) return seededDetail(id);
     return handleApiError(error);
   }
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const user = requireApiUser(request);
+    const db = getDb();
+    const user = await requireActiveApiUser(request, db);
     const { id } = await context.params;
     const body = await readJsonObject(request);
-    const db = getDb();
     const [design] = await db
       .select()
       .from(designs)
@@ -78,6 +74,17 @@ export async function PATCH(request: Request, context: RouteContext) {
     const description = optionalString(body.description, "description", 20_000);
     const category = optionalString(body.category, "category", 80);
     const license = optionalString(body.license, "license", 80);
+    const priceCents = body.priceCents;
+    if (
+      priceCents !== undefined &&
+      (!Number.isInteger(priceCents) || Number(priceCents) < 0 || Number(priceCents) > 10_000_000)
+    ) {
+      throw new ApiError(
+        400,
+        "invalid_field",
+        "priceCents must be an integer between 0 and 10000000.",
+      );
+    }
     const publicationStatus = body.publicationStatus;
     if (
       publicationStatus !== undefined &&
@@ -95,6 +102,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         ...(description !== undefined ? { description } : {}),
         ...(category !== undefined ? { category } : {}),
         ...(license !== undefined ? { license } : {}),
+        ...(priceCents !== undefined ? { priceCents: Number(priceCents) } : {}),
         ...(publicationStatus !== undefined
           ? {
               publicationStatus: publicationStatus as "draft" | "published" | "archived",
@@ -118,18 +126,4 @@ export async function PATCH(request: Request, context: RouteContext) {
   } catch (error) {
     return handleApiError(error);
   }
-}
-
-function seededDetail(id: string): Response {
-  const design = seededDesigns.find((item) => item.id === id || item.slug === id);
-  if (!design) {
-    return Response.json(
-      { error: { code: "not_found", message: "Design not found." } },
-      { status: 404 },
-    );
-  }
-  return Response.json({
-    design: { ...design, revisions: [design.currentRevision] },
-    source: "seed",
-  });
 }

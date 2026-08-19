@@ -6,6 +6,7 @@ import {
   handleApiError,
   readJsonObject,
   requiredString,
+  requireActiveApiUser,
   requireApiUser,
 } from "../../../_lib/http";
 import {
@@ -30,20 +31,21 @@ export async function POST(request: Request) {
 }
 
 async function reconcile(request: Request, sessionId?: string | null) {
-  const config = getStripeCheckoutConfig();
-  if ("missing" in config) {
-    return Response.json(
-      {
-        error: `Payment checkout is not configured. Set ${config.missing.join(" and ")}.`,
-        code: "payment_not_configured",
-      },
-      { status: 503 },
-    );
-  }
   try {
-    const user = requireApiUser(request);
     if (!sessionId) {
       throw new ApiError(400, "invalid_field", "session_id is required.");
+    }
+    const db = getDb();
+    const user = await requireActiveApiUser(request, db);
+    const config = await getStripeCheckoutConfig(db);
+    if ("missing" in config) {
+      return Response.json(
+        {
+          error: `Payment checkout is not configured. Configure ${config.missing.join(" and ")}.`,
+          code: "payment_not_configured",
+        },
+        { status: 503 },
+      );
     }
     const session = await stripeRequest<StripeCheckoutSession>(
       config,
@@ -53,7 +55,6 @@ async function reconcile(request: Request, sessionId?: string | null) {
     if (!requestId) {
       throw new ApiError(404, "not_found", "Verification checkout not found.");
     }
-    const db = getDb();
     const [verificationRequest] = await db
       .select()
       .from(verificationRequests)

@@ -7,6 +7,7 @@ import {
   optionalString,
   readJsonObject,
   requiredString,
+  requireActiveApiUser,
   requireApiUser,
 } from "../../../_lib/http";
 
@@ -14,13 +15,13 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    const user = requireApiUser(request);
+    const db = getDb();
+    const user = await requireActiveApiUser(request, db);
     const { id: designId } = await context.params;
     const body = await readJsonObject(request);
     const version = requiredString(body.version, "version", 40);
     const changelog = optionalString(body.changelog, "changelog", 10_000) ?? "";
     const publish = body.publish === true;
-    const db = getDb();
     const [design] = await db
       .select()
       .from(designs)
