@@ -45,7 +45,7 @@ function classifyLayer(name = '') {
   if (lower.endsWith('.gbo') || lower.includes('b_silk') || lower.includes('bottom overlay') || lower.includes('back silk')) return 'bottom_silk';
   if (lower.endsWith('.gts') || lower.includes('f_mask') || lower.includes('top mask') || lower.includes('front mask')) return 'top_mask';
   if (lower.endsWith('.gbs') || lower.includes('b_mask') || lower.includes('bottom mask') || lower.includes('back mask')) return 'bottom_mask';
-  if (lower.endsWith('.gko') || lower.endsWith('.gm1') || lower.endsWith('.gml') || lower.includes('edge_cuts') || lower.includes('outline') || lower.includes('profile') || lower.includes('board shape')) return 'outline';
+  if (lower.endsWith('.gko') || lower.endsWith('.gm1') || lower.endsWith('.gml') || lower.endsWith('.gm2') || lower.includes('edge_cuts') || lower.includes('outline') || lower.includes('profile') || lower.includes('board shape')) return 'outline';
   return 'other';
 }
 
@@ -139,7 +139,6 @@ function createGerberLayerData(text, layerName = '', isDrill = false) {
   const apertureMap = new Map();
   const drillToolDiameters = new Map();
   let currentAperture = '10';
-  let currentDrillTool = '';
   let currentDrillDiameter = 0.35;
   let currentX = 0;
   let currentY = 0;
@@ -180,8 +179,7 @@ function createGerberLayerData(text, layerName = '', isDrill = false) {
 
       const toolSelect = line.match(/^T(\d+)$/i);
       if (toolSelect) {
-        currentDrillTool = toolSelect[1];
-        currentDrillDiameter = drillToolDiameters.get(currentDrillTool) || currentDrillDiameter;
+        currentDrillDiameter = drillToolDiameters.get(toolSelect[1]) || currentDrillDiameter;
         continue;
       }
 
@@ -231,12 +229,7 @@ function createGerberLayerData(text, layerName = '', isDrill = false) {
 
     if (operation === '1') {
       commands.push({ x1: currentX, y1: currentY, x2: nextX, y2: nextY, width: aperture.size || 0.22 });
-      mergeBounds(bounds, {
-        minX: Math.min(currentX, nextX),
-        minY: Math.min(currentY, nextY),
-        maxX: Math.max(currentX, nextX),
-        maxY: Math.max(currentY, nextY),
-      });
+      mergeBounds(bounds, { minX: Math.min(currentX, nextX), minY: Math.min(currentY, nextY), maxX: Math.max(currentX, nextX), maxY: Math.max(currentY, nextY) });
       currentX = nextX;
       currentY = nextY;
       continue;
@@ -251,14 +244,7 @@ function createGerberLayerData(text, layerName = '', isDrill = false) {
     }
   }
 
-  return {
-    layerName,
-    layerType,
-    bounds: normalizeBounds(bounds),
-    commands,
-    flashes,
-    drills,
-  };
+  return { layerName, layerType, bounds: normalizeBounds(bounds), commands, flashes, drills };
 }
 
 function createEmptySide() {
@@ -268,6 +254,7 @@ function createEmptySide() {
 function mergeLayerPreviewData(parsedLayers) {
   const overallBounds = createEmptyBounds();
   const outlineBounds = createEmptyBounds();
+  const outlineCommands = [];
   let hasOutline = false;
   const top = createEmptySide();
   const bottom = createEmptySide();
@@ -279,6 +266,7 @@ function mergeLayerPreviewData(parsedLayers) {
       case 'outline':
         hasOutline = true;
         mergeBounds(outlineBounds, layer.bounds);
+        outlineCommands.push(...layer.commands);
         break;
       case 'top_copper':
         top.copperCommands.push(...layer.commands);
@@ -312,6 +300,7 @@ function mergeLayerPreviewData(parsedLayers) {
   return {
     bounds,
     boardBounds,
+    outlineCommands,
     top,
     bottom,
     drills,
@@ -369,8 +358,8 @@ function buildBoardTexture(previewData, side = 'top', width = 2048, height = 140
   const padding = 56;
   const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY);
 
-  ctx.fillStyle = '#166a4a';
-  ctx.fillRect(0, 0, width, height);
+  ctx.clearRect(0, 0, width, height);
+  ctx.imageSmoothingEnabled = true;
 
   ctx.save();
   if (side === 'bottom') {
@@ -382,14 +371,6 @@ function buildBoardTexture(previewData, side = 'top', width = 2048, height = 140
   ctx.translate(-bounds.minX, -bounds.minY);
 
   drawLayerSet(ctx, side === 'bottom' ? previewData.bottom : previewData.top);
-
-  ctx.fillStyle = '#09121e';
-  for (const drill of previewData.drills.slice(0, 1400)) {
-    const r = Math.max((drill.diameter || 0.35) / 2, 0.08);
-    ctx.beginPath();
-    ctx.arc(drill.x, drill.y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
   ctx.restore();
   return offscreen;
@@ -412,6 +393,45 @@ function createRoundedRectShape(width, height, radius) {
   return shape;
 }
 
+function createBoardShape(previewData) {
+  const bounds = previewData.boardBounds || previewData.bounds;
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2;
+  const outline = previewData.outlineCommands || [];
+
+  if (outline.length >= 2) {
+    const shape = new THREE.Shape();
+    let started = false;
+    let lastX = null;
+    let lastY = null;
+
+    for (const command of outline) {
+      const x1 = command.x1 - centerX;
+      const y1 = command.y1 - centerY;
+      const x2 = command.x2 - centerX;
+      const y2 = command.y2 - centerY;
+
+      if (!started) {
+        shape.moveTo(x1, y1);
+        started = true;
+      } else if (lastX !== null && (Math.abs(lastX - x1) > 0.001 || Math.abs(lastY - y1) > 0.001)) {
+        shape.lineTo(x1, y1);
+      }
+
+      shape.lineTo(x2, y2);
+      lastX = x2;
+      lastY = y2;
+    }
+
+    shape.closePath();
+    return shape;
+  }
+
+  const width = Math.max(bounds.maxX - bounds.minX, 1);
+  const height = Math.max(bounds.maxY - bounds.minY, 1);
+  return createRoundedRectShape(width, height, Math.min(width, height) * 0.04);
+}
+
 function disposeMaterial(material) {
   if (!material) return;
   if (Array.isArray(material)) {
@@ -422,18 +442,36 @@ function disposeMaterial(material) {
   material.dispose();
 }
 
+function createSurfaceMaterial(texture) {
+  return new THREE.MeshStandardMaterial({
+    map: texture,
+    color: 0xffffff,
+    roughness: 0.56,
+    metalness: 0.1,
+    side: THREE.FrontSide,
+    transparent: true,
+    alphaTest: 0.05,
+    depthTest: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -2,
+  });
+}
+
 function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   if (!canvas || !previewData) return () => {};
 
   const boardBounds = previewData.boardBounds || previewData.bounds;
   const spanX = Math.max(boardBounds.maxX - boardBounds.minX, 1);
   const spanY = Math.max(boardBounds.maxY - boardBounds.minY, 1);
-  const worldScale = 0.04;
-  const boardWidth = Math.max(spanX * worldScale, 0.8);
-  const boardHeight = Math.max(spanY * worldScale, 0.8);
+  const boardWidth = spanX;
+  const boardHeight = spanY;
   const boardLongest = Math.max(boardWidth, boardHeight);
-  const thickness = Math.max(boardLongest * 0.018, 0.08);
-  const radius = Math.min(boardWidth, boardHeight) * 0.08;
+  const thickness = 1.6;
+  const surfaceLift = Math.max(thickness * 0.01, 0.02);
+  const centerX = (boardBounds.minX + boardBounds.maxX) / 2;
+  const centerY = (boardBounds.minY + boardBounds.maxY) / 2;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf1f6fc);
@@ -446,11 +484,11 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
   else renderer.outputEncoding = THREE.sRGBEncoding;
 
-  const shape = createRoundedRectShape(boardWidth, boardHeight, radius);
+  const shape = createBoardShape(previewData);
   const boardGeometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 28, steps: 1 });
   boardGeometry.translate(0, 0, -thickness / 2);
-
   const boardMesh = new THREE.Mesh(boardGeometry, new THREE.MeshStandardMaterial({ color: 0x0e694b, roughness: 0.72, metalness: 0.08 }));
+  boardMesh.renderOrder = 0;
   scene.add(boardMesh);
 
   const topTexture = new THREE.CanvasTexture(buildBoardTexture(previewData, 'top'));
@@ -468,25 +506,27 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   bottomTexture.anisotropy = anisotropy;
 
   const topGeometry = new THREE.ShapeGeometry(shape, 40);
-  topGeometry.translate(0, 0, thickness / 2 + 0.001);
-  const topMesh = new THREE.Mesh(topGeometry, new THREE.MeshStandardMaterial({ map: topTexture, color: 0xffffff, roughness: 0.56, metalness: 0.1, side: THREE.DoubleSide }));
+  topGeometry.translate(0, 0, thickness / 2 + surfaceLift);
+  const topMesh = new THREE.Mesh(topGeometry, createSurfaceMaterial(topTexture));
+  topMesh.renderOrder = 2;
   scene.add(topMesh);
 
   const bottomGeometry = new THREE.ShapeGeometry(shape, 40);
-  bottomGeometry.translate(0, 0, -thickness / 2 - 0.001);
-  const bottomMesh = new THREE.Mesh(bottomGeometry, new THREE.MeshStandardMaterial({ map: bottomTexture, color: 0xffffff, roughness: 0.56, metalness: 0.1, side: THREE.DoubleSide }));
+  bottomGeometry.translate(0, 0, -thickness / 2 - surfaceLift);
+  const bottomMesh = new THREE.Mesh(bottomGeometry, createSurfaceMaterial(bottomTexture));
   bottomMesh.rotateY(Math.PI);
+  bottomMesh.renderOrder = 2;
   scene.add(bottomMesh);
 
-  const drillScale = Math.min(boardWidth / spanX, boardHeight / spanY);
   for (const drill of previewData.drills.slice(0, 800)) {
-    const localX = ((drill.x - boardBounds.minX) / spanX - 0.5) * boardWidth;
-    const localY = ((drill.y - boardBounds.minY) / spanY - 0.5) * boardHeight;
-    const radiusValue = Math.max(((drill.diameter || 0.35) / 2) * drillScale, 0.014);
+    const localX = drill.x - centerX;
+    const localY = drill.y - centerY;
+    const radiusValue = Math.max((drill.diameter || 0.35) / 2, 0.14);
     const holeGeometry = new THREE.CylinderGeometry(radiusValue, radiusValue, thickness + 0.04, 18);
     holeGeometry.rotateX(Math.PI / 2);
     const holeMesh = new THREE.Mesh(holeGeometry, new THREE.MeshStandardMaterial({ color: 0x0b1120, roughness: 0.4, metalness: 0.2 }));
     holeMesh.position.set(localX, localY, 0);
+    holeMesh.renderOrder = 1;
     scene.add(holeMesh);
   }
 
@@ -503,15 +543,15 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.target.set(0, 0, 0);
-    controls.minDistance = boardLongest * 0.7;
-    controls.maxDistance = boardLongest * 7;
+    controls.minDistance = boardLongest * 0.6;
+    controls.maxDistance = boardLongest * 8;
     controls.enablePan = true;
     controls.screenSpacePanning = false;
     controls.minPolarAngle = 0.01;
     controls.maxPolarAngle = Math.PI - 0.01;
   }
 
-  camera.position.set(boardWidth * 0.8, -boardHeight * 1.35, boardLongest * 0.95);
+  camera.position.set(boardWidth * 0.9, -boardHeight * 1.5, Math.max(boardLongest * 0.9, 25));
   camera.lookAt(0, 0, 0);
 
   const renderScene = () => {
@@ -605,9 +645,10 @@ export async function buildGerberPreviewFile(file, groupHint) {
       }
     }
     if (parsedLayers.length) {
+      const merged = mergeLayerPreviewData(parsedLayers);
       return {
         ...buildPreviewFromParsedLayers(file, parsedLayers, groupHint),
-        notes: [`${entries.length} files in bundle`, `${parsedLayers.length} renderable layers detected`, mergeLayerPreviewData(parsedLayers).sizeLabel, 'Top and bottom copper rendered'],
+        notes: [`${entries.length} files in bundle`, `${parsedLayers.length} renderable layers detected`, merged.sizeLabel, 'Top and bottom copper rendered'],
       };
     }
     return {
@@ -621,13 +662,8 @@ export async function buildGerberPreviewFile(file, groupHint) {
   const text = await file.text();
   if (GERBER_EXTENSIONS.includes(extension) || (DRILL_EXTENSIONS.includes(extension) && isDrillName(file.name))) {
     const parsed = createGerberLayerData(text, file.name, DRILL_EXTENSIONS.includes(extension) && isDrillName(file.name));
-    return {
-      ...base,
-      kind: 'gerber',
-      render: mergeLayerPreviewData([parsed]),
-      text,
-      notes: [mergeLayerPreviewData([parsed]).sizeLabel],
-    };
+    const merged = mergeLayerPreviewData([parsed]);
+    return { ...base, kind: 'gerber', render: merged, text, notes: [merged.sizeLabel] };
   }
 
   return { ...base, kind: extension || 'text', text: await file.text() };
