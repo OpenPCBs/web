@@ -25,23 +25,8 @@ import {
   useAuth,
   useUser,
 } from '@clerk/clerk-react';
-import {
-  Archive,
-  ArrowRight,
-  ArrowUpRight,
-  Download,
-  Files,
-  FileText,
-  FolderOpen,
-  GitFork,
-  ImageIcon,
-  Layers3,
-  Rocket,
-  Trash2,
-} from 'lucide-react';
+import { Archive, ArrowRight, ArrowUpRight, Download, Files, FileText, FolderOpen, GitFork, ImageIcon, Layers3, Rocket, Trash2 } from 'lucide-react';
 import JSZip from 'jszip';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const DOC_EXTENSIONS = ['pdf', 'md', 'txt', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'webp', 'svg'];
@@ -228,7 +213,22 @@ function mergeRenderData(items) {
   return merged;
 }
 
-function buildBoardTexture(renderData, width = 2048, height = 1400) {
+function createRoundedRectPath(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function buildBoardTexture(renderData, width = 1000, height = 700) {
   const offscreen = document.createElement('canvas');
   offscreen.width = width;
   offscreen.height = height;
@@ -236,41 +236,39 @@ function buildBoardTexture(renderData, width = 2048, height = 1400) {
   const { minX, minY, maxX, maxY } = renderData.bounds;
   const spanX = Math.max(maxX - minX, 1);
   const spanY = Math.max(maxY - minY, 1);
-  const padding = 56;
+  const padding = 50;
   const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY);
 
-  ctx.fillStyle = '#166a4a';
-  ctx.fillRect(0, 0, width, height);
-
+  ctx.clearRect(0, 0, width, height);
   ctx.save();
   ctx.translate(padding, height - padding);
   ctx.scale(scale, -scale);
   ctx.translate(-minX, -minY);
 
-  ctx.strokeStyle = '#d1b160';
-  ctx.fillStyle = '#d1b160';
+  ctx.strokeStyle = '#d4b25c';
+  ctx.fillStyle = '#d4b25c';
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
   for (const command of renderData.commands) {
-    ctx.lineWidth = Math.max(command.width / 1000, 1.4 / scale);
+    ctx.lineWidth = Math.max(command.width / 1000, 1.2 / scale);
     ctx.beginPath();
     ctx.moveTo(command.x1, command.y1);
     ctx.lineTo(command.x2, command.y2);
     ctx.stroke();
   }
 
-  ctx.fillStyle = '#ead790';
+  ctx.fillStyle = '#e8d38c';
   for (const flash of renderData.flashes) {
-    const radius = Math.max(flash.r / 2000, 1.3 / scale);
+    const radius = Math.max(flash.r / 2000, 1.2 / scale);
     ctx.beginPath();
     ctx.arc(flash.x, flash.y, radius, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  ctx.fillStyle = '#0b1120';
-  for (const drill of renderData.drills.slice(0, 1200)) {
-    const radius = Math.max(drill.r / 2200, 1 / scale);
+  ctx.fillStyle = '#08131c';
+  for (const drill of renderData.drills) {
+    const radius = Math.max(drill.r / 2000, 1 / scale);
     ctx.beginPath();
     ctx.arc(drill.x, drill.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -280,176 +278,61 @@ function buildBoardTexture(renderData, width = 2048, height = 1400) {
   return offscreen;
 }
 
-function createRoundedRectShape(width, height, radius) {
-  const r = Math.min(radius, width / 2, height / 2);
-  const x = -width / 2;
-  const y = -height / 2;
-  const shape = new THREE.Shape();
-  shape.moveTo(x + r, y);
-  shape.lineTo(x + width - r, y);
-  shape.quadraticCurveTo(x + width, y, x + width, y + r);
-  shape.lineTo(x + width, y + height - r);
-  shape.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-  shape.lineTo(x + r, y + height);
-  shape.quadraticCurveTo(x, y + height, x, y + height - r);
-  shape.lineTo(x, y + r);
-  shape.quadraticCurveTo(x, y, x + r, y);
-  return shape;
-}
+function drawBoardPreview(canvas, renderData) {
+  if (!canvas || !renderData) return;
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  const boardWidth = width * 0.7;
+  const boardHeight = height * 0.46;
+  const thickness = 18;
+  const boardX = (width - boardWidth) / 2;
+  const boardY = (height - boardHeight) / 2 - 8;
 
-function disposeMaterial(material) {
-  if (!material) return;
-  if (Array.isArray(material)) {
-    material.forEach(disposeMaterial);
-    return;
-  }
-  if (material.map) material.map.dispose();
-  material.dispose();
-}
+  ctx.clearRect(0, 0, width, height);
+  const background = ctx.createLinearGradient(0, 0, width, height);
+  background.addColorStop(0, '#eef3fb');
+  background.addColorStop(1, '#dde8f8');
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, width, height);
 
-function mountBoardViewer(canvas, renderData, { interactive = true } = {}) {
-  if (!canvas || !renderData) return () => {};
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf1f6fc);
+  ctx.save();
+  ctx.translate(boardX + boardWidth / 2, boardY + boardHeight / 2);
+  ctx.rotate(-0.08);
 
-  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-  camera.up.set(0, 0, 1);
+  const x = -boardWidth / 2;
+  const y = -boardHeight / 2;
+  const texture = buildBoardTexture(renderData, 1100, 700);
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
-  else renderer.outputEncoding = THREE.sRGBEncoding;
+  ctx.fillStyle = 'rgba(7, 12, 22, 0.18)';
+  createRoundedRectPath(ctx, x + 18, y + 22, boardWidth, boardHeight, 18);
+  ctx.fill();
 
-  const group = new THREE.Group();
-  scene.add(group);
+  ctx.fillStyle = '#0b4c35';
+  createRoundedRectPath(ctx, x + 10, y + boardHeight - 2, boardWidth, thickness, 16);
+  ctx.fill();
+  createRoundedRectPath(ctx, x + boardWidth - 2, y + 10, thickness, boardHeight, 16);
+  ctx.fill();
 
-  const spanX = Math.max(renderData.bounds.maxX - renderData.bounds.minX, 1);
-  const spanY = Math.max(renderData.bounds.maxY - renderData.bounds.minY, 1);
-  const aspect = spanX / spanY;
-  const boardLongest = 6.4;
-  const boardWidth = aspect >= 1 ? boardLongest : boardLongest * aspect;
-  const boardHeight = aspect >= 1 ? boardLongest / aspect : boardLongest;
-  const thickness = 0.14;
-  const radius = Math.min(boardWidth, boardHeight) * 0.08;
-  const shape = createRoundedRectShape(boardWidth, boardHeight, radius);
+  const boardGradient = ctx.createLinearGradient(x, y, x, y + boardHeight);
+  boardGradient.addColorStop(0, '#17835a');
+  boardGradient.addColorStop(1, '#0c5d40');
+  ctx.fillStyle = boardGradient;
+  createRoundedRectPath(ctx, x, y, boardWidth, boardHeight, 18);
+  ctx.fill();
 
-  const boardGeometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 28, steps: 1 });
-  boardGeometry.translate(0, 0, -thickness / 2);
-  const boardMaterial = new THREE.MeshStandardMaterial({ color: 0x0f6c4f, roughness: 0.72, metalness: 0.08 });
-  const boardMesh = new THREE.Mesh(boardGeometry, boardMaterial);
-  group.add(boardMesh);
+  ctx.save();
+  createRoundedRectPath(ctx, x, y, boardWidth, boardHeight, 18);
+  ctx.clip();
+  ctx.drawImage(texture, x + 12, y + 12, boardWidth - 24, boardHeight - 24);
+  ctx.restore();
 
-  const textureCanvas = buildBoardTexture(renderData);
-  const boardTexture = new THREE.CanvasTexture(textureCanvas);
-  if ('colorSpace' in boardTexture) boardTexture.colorSpace = THREE.SRGBColorSpace;
-  else boardTexture.encoding = THREE.sRGBEncoding;
-  if (renderer.capabilities?.getMaxAnisotropy) boardTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.32)';
+  createRoundedRectPath(ctx, x, y, boardWidth, boardHeight, 18);
+  ctx.stroke();
 
-  const topGeometry = new THREE.ShapeGeometry(shape, 40);
-  topGeometry.translate(0, 0, thickness / 2 + 0.001);
-  const topMaterial = new THREE.MeshStandardMaterial({ map: boardTexture, color: 0xffffff, roughness: 0.58, metalness: 0.1 });
-  const topMesh = new THREE.Mesh(topGeometry, topMaterial);
-  group.add(topMesh);
-
-  const bottomGeometry = new THREE.ShapeGeometry(shape, 40);
-  bottomGeometry.translate(0, 0, -thickness / 2 - 0.001);
-  const bottomMaterial = new THREE.MeshStandardMaterial({ color: 0x0e5f44, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide });
-  const bottomMesh = new THREE.Mesh(bottomGeometry, bottomMaterial);
-  group.add(bottomMesh);
-
-  const drillMaterial = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.2 });
-  const drillScale = Math.min(boardWidth / spanX, boardHeight / spanY);
-  const minX = renderData.bounds.minX;
-  const minY = renderData.bounds.minY;
-  for (const drill of renderData.drills.slice(0, 650)) {
-    const localX = ((drill.x - minX) / spanX - 0.5) * boardWidth;
-    const localY = ((drill.y - minY) / spanY - 0.5) * boardHeight;
-    const radiusValue = Math.max((drill.r / 2200) * drillScale, 0.018);
-    const geo = new THREE.CylinderGeometry(radiusValue, radiusValue, thickness + 0.04, 16);
-    geo.rotateX(Math.PI / 2);
-    const hole = new THREE.Mesh(geo, drillMaterial);
-    hole.position.set(localX, localY, 0);
-    group.add(hole);
-  }
-
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xc8d8e8, 1.25));
-  const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-  mainLight.position.set(6, -7, 8);
-  scene.add(mainLight);
-  const fillLight = new THREE.DirectionalLight(0xbcd7ff, 0.7);
-  fillLight.position.set(-6, 5, 4);
-  scene.add(fillLight);
-
-  const controls = interactive ? new OrbitControls(camera, canvas) : null;
-  if (controls) {
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.target.set(0, 0, 0);
-    controls.minDistance = Math.max(boardWidth, boardHeight) * 0.95;
-    controls.maxDistance = Math.max(boardWidth, boardHeight) * 4.5;
-    controls.screenSpacePanning = false;
-    controls.enablePan = true;
-    controls.maxPolarAngle = Math.PI / 2.02;
-  }
-
-  camera.position.set(boardWidth * 0.72, -boardHeight * 1.22, Math.max(boardWidth, boardHeight) * 1.15);
-  camera.lookAt(0, 0, 0);
-
-  const renderScene = () => {
-    controls?.update();
-    renderer.render(scene, camera);
-  };
-
-  const resize = () => {
-    const width = canvas.clientWidth || (interactive ? 860 : 560);
-    const height = canvas.clientHeight || (interactive ? 420 : 180);
-    renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    renderScene();
-  };
-
-  let frameId = 0;
-  const tick = () => {
-    renderScene();
-    frameId = requestAnimationFrame(tick);
-  };
-
-  let observer = null;
-  if (typeof ResizeObserver !== 'undefined') {
-    observer = new ResizeObserver(resize);
-    observer.observe(canvas);
-  } else {
-    window.addEventListener('resize', resize);
-  }
-
-  resize();
-  if (interactive) tick();
-
-  return () => {
-    if (frameId) cancelAnimationFrame(frameId);
-    if (observer) observer.disconnect();
-    else window.removeEventListener('resize', resize);
-    controls?.dispose();
-    boardGeometry.dispose();
-    topGeometry.dispose();
-    bottomGeometry.dispose();
-    group.traverse((child) => {
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) disposeMaterial(child.material);
-    });
-    boardTexture.dispose();
-    renderer.dispose();
-  };
-}
-
-function BoardViewer3D({ renderData, className, interactive = true }) {
-  const canvasRef = useRef(null);
-  useEffect(() => {
-    if (!renderData) return undefined;
-    return mountBoardViewer(canvasRef.current, renderData, { interactive });
-  }, [renderData, interactive]);
-  return <canvas ref={canvasRef} className={className} />;
+  ctx.restore();
 }
 
 async function buildFilePreview(file, groupHint) {
@@ -482,7 +365,7 @@ async function buildFilePreview(file, groupHint) {
         kind: 'zip-gerber',
         layers: layers.map((layer) => layer.name),
         render: mergeRenderData(layers.map((layer) => createGerberRenderData(layer.text, layer.isDrill))),
-        notes: [`${entries.length} files in bundle`, `${layers.length} renderable layers detected`, 'Interactive 3D preview'],
+        notes: [`${entries.length} files in bundle`, `${layers.length} renderable layers detected`],
       };
     }
     return {
@@ -511,12 +394,16 @@ async function buildPreviewFromRemoteFile(fileDescriptor) {
 }
 
 function FilePreview({ preview }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (preview?.render && ['gerber', 'drill', 'zip-gerber'].includes(preview.kind)) {
+      drawBoardPreview(canvasRef.current, preview.render);
+    }
+  }, [preview]);
   useEffect(() => () => {
     if (preview?.objectUrl) URL.revokeObjectURL(preview.objectUrl);
   }, [preview]);
-
   if (!preview) return null;
-
   return (
     <article className="preview-card">
       <div className="preview-card-header">
@@ -528,74 +415,18 @@ function FilePreview({ preview }) {
       </div>
       {preview.kind === 'image' ? <img className="preview-image" src={preview.objectUrl} alt={preview.name} /> : null}
       {preview.kind === 'pdf' ? <iframe className="preview-frame" title={preview.name} src={preview.objectUrl} /> : null}
-      {['gerber', 'drill', 'zip-gerber'].includes(preview.kind) ? (
-        <>
-          <BoardViewer3D renderData={preview.render} className="preview-canvas" interactive />
-          <div className="viewer-hint">Drag to orbit. Scroll to zoom.</div>
-        </>
-      ) : null}
+      {['gerber', 'drill', 'zip-gerber'].includes(preview.kind) ? <canvas ref={canvasRef} className="preview-canvas" width="860" height="520" /> : null}
       {preview.layers?.length ? <div className="tag-row">{preview.layers.map((layer) => <span key={layer} className="chip chip-soft">{layer}</span>)}</div> : null}
       {preview.notes?.length ? <div className="tag-row">{preview.notes.map((note) => <span key={note} className="chip chip-soft">{note}</span>)}</div> : null}
       {preview.text && !['image', 'pdf'].includes(preview.kind) ? <pre className="code-panel">{preview.text.slice(0, 2400)}</pre> : null}
     </article>
   );
 }
->>>>>>> parent of 3dd1d42 (Gerber render fix)
 
-      <main id="top">
-        <section className="hero">
-          <div className="hero-copy">
-            <div className="eyebrow"><span></span> AI DECK OPTIMIZATION • BUILT FOR AMD</div>
-            <h1>Build decks that<br /><em>win more.</em></h1>
-            <p>Run thousands of local simulations against proven tournament strategies. ManaForge finds the strongest 100 cards for your commander—or the sharpest 60 for Standard.</p>
-            <div className="hero-buttons"><a className="primary" href="#builder"><Zap size={18} fill="currentColor" /> Start building</a><button className="ghost"><Play size={17} fill="currentColor" /> See how it works</button></div>
-            <div className="trust"><span><ShieldCheck size={17} /> Legal cards only</span><span><Cpu size={17} /> NPU accelerated</span><span><BookOpen size={17} /> Offline card database</span></div>
-          </div>
-          <div className="hero-visual" aria-label="Deck optimization preview">
-            <div className="glow"></div>
-            <div className="card-stack"><div className="game-card back-two"></div><div className="game-card back-one"></div><div className="game-card front"><div className="card-cost"><Mana colors={selected.colors} /></div><div className="card-art"><Crown size={68} /></div><b>{selected.name}</b><small>Legendary Creature — Commander</small><div className="card-rule">Your deck learns from every simulation. Optimize synergy, curve, and interaction.</div></div></div>
-            <div className="float-stat stat-one"><Activity size={17} /><span><b>10,000+</b> matchups tested</span></div>
-            <div className="float-stat stat-two"><Trophy size={17} /><span><b>+18.6%</b> projected win rate</span></div>
-          </div>
-        </section>
+function ProjectBoardThumbnail({ project }) {
+  const [preview, setPreview] = useState(null);
+  const gerberFile = useMemo(() => getPrimaryGerberFile(project.files || []), [project.files]);
 
-<<<<<<< HEAD
-        <section className="metrics">
-          <div><b>31,000+</b><span>legal cards indexed</span></div><div><b>10,000</b><span>simulations per build</span></div><div><b>3 years</b><span>of tournament results</span></div><div><b>100%</b><span>runs locally</span></div>
-        </section>
-
-        <section className="builder-section" id="builder">
-          <div className="section-heading"><div><span className="kicker">THE FORGE</span><h2>Design your next deck</h2><p>Choose a format and strategy. The optimizer handles the rest.</p></div><span className="status"><span></span> Card data ready</span></div>
-          <div className="builder-grid">
-            <aside className="setup-panel">
-              <div className="step-title"><span>1</span><div><b>Choose format</b><small>Select your rule set</small></div></div>
-              <div className="segment">{['Commander', 'Standard'].map((item) => <button className={format === item ? 'selected' : ''} onClick={() => setFormat(item)} key={item}>{item === 'Commander' ? <Crown size={17} /> : <Swords size={17} />}{item}</button>)}</div>
-              <div className="step-title"><span>2</span><div><b>{format === 'Commander' ? 'Select commander' : 'Choose colors'}</b><small>{format === 'Commander' ? 'Your deck’s centerpiece' : 'Set your color identity'}</small></div></div>
-              <label className="search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search commanders..." /></label>
-              <div className="commander-list">{filtered.map((item) => <button key={item.name} className={selected.name === item.name ? 'commander selected' : 'commander'} onClick={() => setSelected(item)}><span className="avatar">{item.name.charAt(0)}</span><span><b>{item.name}</b><small>{item.meta}</small></span><Mana colors={item.colors} />{selected.name === item.name && <Check size={17} />}</button>)}</div>
-              <div className="step-title"><span>3</span><div><b>Simulation depth</b><small>More runs, stronger results</small></div></div>
-              <div className="range-label"><b>{simulations.toLocaleString()} games</b><span>~{Math.round(simulations / 4000)} min on AMD NPU</span></div>
-              <input className="range" type="range" min="1000" max="25000" step="1000" value={simulations} onChange={(e) => setSimulations(Number(e.target.value))} />
-              <button className="forge-button" onClick={optimize} disabled={running}>{running ? <RefreshCw className="spin" size={19} /> : <FlaskConical size={19} />}{running ? 'Simulating matchups…' : 'Forge my deck'}<span>→</span></button>
-            </aside>
-
-            <div className="results-panel">
-              <div className="results-top"><div><span className="kicker">OPTIMIZATION PREVIEW</span><h3>{selected.name}</h3><div className="subline"><Mana colors={selected.colors} /> {format} • {simulations.toLocaleString()} simulations</div></div><div className="score"><b>{ready ? '96' : selected.score}</b><span>SYNERGY</span></div></div>
-              <div className="chart"><div className="chart-head"><b>Projected win rate</b><span>{ready ? '67.8%' : '64.2%'}</span></div><div className="bars">{[35,46,40,53,49,61,58,68,64,76,72,86,82,91].map((height, i) => <i key={i} style={{height: `${height}%`}}></i>)}</div><div className="axis"><span>1k</span><span>5k</span><span>10k simulations</span></div></div>
-              <div className="result-stats"><div><span>AVG. MANA VALUE</span><b>2.84</b><small>Balanced curve</small></div><div><span>INTERACTION</span><b>18</b><small>Removal + counters</small></div><div><span>LANDS</span><b>36</b><small>98.2% consistency</small></div></div>
-              <div className={ready ? 'ready-message show' : 'ready-message'}><Check size={18} /> Optimization complete. Your deck list is ready to export.</div>
-              <div className="engine-note"><Cpu size={22} /><div><b>AMD Ryzen AI detected</b><small>Simulations will run on your NPU, keeping card data and results private.</small></div><span>READY</span></div>
-            </div>
-          </div>
-        </section>
-
-        <section className="tournaments" id="decks">
-          <div className="section-heading"><div><span className="kicker">PROVEN STRATEGIES</span><h2>Recent tournament winners</h2><p>Winning archetypes provide the baseline for every simulation.</p></div><button className="view-all">View all decks <ChevronDown size={16} /></button></div>
-          <div className="deck-grid">{tournamentDecks.map((deck, index) => <article key={deck.name}><div className={`deck-art art-${index}`}><Trophy size={34} /><span>{deck.record}</span></div><div className="deck-content"><div className="deck-tag">{deck.format}</div><h3>{deck.name}</h3><p>{deck.event}</p><div className="deck-footer"><Mana colors={deck.colors} /><button>View list →</button></div></div></article>)}</div>
-        </section>
-      </main>
-      <footer><div className="logo"><span className="logo-gem"><Sparkles size={16} /></span><span>Mana<span>Forge</span></span></div><p>Local-first deck intelligence for Magic players.</p><span>Data sources connect during desktop setup.</span></footer>
-=======
   useEffect(() => {
     let active = true;
     if (!gerberFile || inferFileGroup(gerberFile) !== 'gerber_zip') {
@@ -614,18 +445,21 @@ function FilePreview({ preview }) {
     };
   }, [gerberFile?.url]);
 
+  useEffect(() => {
+    if (preview?.render) drawBoardPreview(canvasRef.current, preview.render);
+  }, [preview]);
+
   if (!gerberFile || inferFileGroup(gerberFile) !== 'gerber_zip') {
     return <div className="project-card-thumbnail project-card-thumbnail-empty">No Gerber preview</div>;
   }
 
   if (!preview?.render) {
-    return <div className="project-card-thumbnail project-card-thumbnail-empty">Generating 3D preview…</div>;
+    return <div className="project-card-thumbnail project-card-thumbnail-empty">Generating board preview…</div>;
   }
 
   return (
     <div className="project-card-thumbnail">
       <BoardViewer3D renderData={preview.render} className="project-card-thumbnail-canvas" interactive={false} />
->>>>>>> parent of 3dd1d42 (Gerber render fix)
     </div>
   );
 }
@@ -743,7 +577,7 @@ function HomePage({ projects, loading }) {
         <div className="container">
           <div className="section-heading">
             <span className="eyebrow">Core flow</span>
-            <h2>Simple work flow</h2>
+            <h2>Keep the homepage focused on what people can do.</h2>
           </div>
           <div className="feature-grid">
             <article className="feature-card"><Files size={20} /><h3>Upload project files</h3><p>Share schematics, layouts, Gerbers, PDFs, renders, and documentation in one place.</p></article>
@@ -933,9 +767,9 @@ function PublishPage({ refreshProjects }) {
           <div className="section-heading">
             <span className="eyebrow">Upload</span>
             <h1>Publish a hardware project.</h1>
-            <p className="hero-copy">Use the Gerber ZIP as the main required upload, then add documentation and project files if you want. The board preview is a full interactive WebGL scene generated from the Gerber ZIP bundle.</p>
+            <p className="hero-copy">Use the Gerber ZIP as the main required upload, then add documentation and project files if you want. The board preview is generated from the Gerber ZIP bundle.</p>
           </div>
-          {gerberPreview ? <FilePreview preview={gerberPreview} /> : <div className="empty-state">Add a Gerber ZIP to generate the interactive board preview.</div>}
+          {gerberPreview ? <FilePreview preview={gerberPreview} /> : <div className="empty-state">Add a Gerber ZIP to generate the board preview.</div>}
         </div>
         <div>
           <SignedOut>
@@ -963,7 +797,7 @@ function PublishPage({ refreshProjects }) {
                 <UploadBucket
                   icon={<Archive size={18} />}
                   title="Gerber ZIP"
-                  help="Required. Upload the zipped manufacturing package that drives the 3D board preview."
+                  help="Required. Upload the zipped manufacturing package that should drive the board preview."
                   accept=".zip"
                   onChange={onGerberChange}
                   files={gerberZipFile ? [gerberZipFile] : []}
