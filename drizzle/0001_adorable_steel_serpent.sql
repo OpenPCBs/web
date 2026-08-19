@@ -1,0 +1,1 @@
+ALTER TABLE `designs` ADD `price_cents` integer DEFAULT 0 NOT NULL;

@@ -1,7 +1,10 @@
-node_modules
-dist
+node_modules/
+dist/
+.next/
+.vinext/
+.wrangler/
 .env
 .env.*
-.pb_data
-server/node_modules
-server/.env
+!.env.example
+*.log
+*.tsbuildinfo

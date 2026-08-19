@@ -1,0 +1,12 @@
+import type { Metadata } from "next";
+import { SiteFooter, SiteHeader } from "../components/site-shell";
+
+export const metadata: Metadata = { title: "Trust & Platform Policies", description: "How Thevenin handles verification, revisions, licensing, suppliers, safety, files, and support." };
+export default function DocsPage() { const sections = [
+  ["verification","Verification policy","Community, Built, Verified, and Lab Verified are revision-specific evidence levels. Lab Verified means Thevenin Works reproduced and tested the stated revision under the public certificate scope; it is not UL, CE, FCC, safety, or regulatory certification."],
+  ["licenses","Licensing and IP","Creators choose an explicit hardware, documentation, software, and commercial license. Buyers receive only the rights named on the listing. Takedown, counter-notice, refund, and dispute processes are recorded against the release."],
+  ["safety","High-voltage safety","Power-electronics designs may involve lethal energy. Marketplace information is not a substitute for qualified engineering review, controlled lab procedures, protective equipment, or applicable standards."],
+  ["suppliers","Supplier program","Thevenin seeks authorized reseller relationships, dealer pricing, direct fulfillment, blind shipping, inventory feeds, lead-time feeds, RMA ownership, warranty procedures, and university programs."],
+  ["storage","Files and privacy","Source packages and lab evidence remain private by default in low-cost object storage. Initial Gerber previews run locally. Public listings use derived previews; downloads use time-limited access."],
+  ["support","Support","Order, license, lab, and safety issues are routed separately so technical questions reach the right owner. The production support inbox and SLA will appear here before commercial launch."],
+]; return <><SiteHeader /><main className="docs-layout shell"><aside><span className="micro-label">TRUST CENTER</span>{sections.map(([id,title]) => <a href={`#${id}`} key={id}>{title}</a>)}</aside><section><div className="page-title"><span className="kicker">THEVENIN POLICIES</span><h1>Precise claims.<br />Traceable decisions.</h1><p>The practical rules behind revisions, evidence, licensing, procurement, privacy, and safety.</p></div>{sections.map(([id,title,copy]) => <article id={id} key={id}><span className="micro-label">{id.toUpperCase()}</span><h2>{title}</h2><p>{copy}</p></article>)}</section></main><SiteFooter /></>; }
