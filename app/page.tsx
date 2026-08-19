@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "./components/native-link";
 import { chatGPTSignInPath, getChatGPTUser } from "./chatgpt-auth";
 import { HomeProductFeed } from "./components/public-product-catalog";
 import styles from "./components/product-catalog.module.css";

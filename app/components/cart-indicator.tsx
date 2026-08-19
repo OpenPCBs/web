@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "./native-link";
 import { ShoppingCart } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 

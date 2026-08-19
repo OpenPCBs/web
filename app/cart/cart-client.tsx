@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "../components/native-link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   apiErrorMessage,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "./native-link";
 import { Box, CircleAlert, FileBadge, GitBranch, LoaderCircle, LogOut, PackageCheck, ShoppingBag } from "lucide-react";
 import { AccountCheckoutStatus } from "./account-checkout-status";
 

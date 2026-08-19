@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "../../components/native-link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, Edit3, Plus, Search, Send } from "lucide-react";
 import { adminRequest, errorMessage, money, shortDate } from "../admin-api";
@@ -111,4 +111,3 @@ export default function ProductsPage() {
     </>
   );
 }
-

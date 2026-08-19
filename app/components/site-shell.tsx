@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "./native-link";
 import { Search, UserRound } from "lucide-react";
 import { CartIndicator } from "./cart-indicator";
 

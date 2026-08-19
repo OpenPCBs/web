@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "../components/native-link";
 import { useCallback, useEffect, useState } from "react";
 import { Boxes, ClipboardCheck, Inbox, Plus, ShoppingBag, UsersRound } from "lucide-react";
 import { adminRequest, errorMessage, money, shortDateTime } from "./admin-api";
@@ -108,4 +108,3 @@ export default function AdminDashboardPage() {
 function byNewest(left: { createdAt?: string }, right: { createdAt?: string }): number {
   return Date.parse(right.createdAt ?? "") - Date.parse(left.createdAt ?? "");
 }
-

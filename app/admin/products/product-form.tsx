@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "../../components/native-link";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, ImagePlus, LoaderCircle, Save, Trash2 } from "lucide-react";
 import { adminRequest, errorMessage } from "../admin-api";
@@ -41,7 +40,6 @@ const emptyForm: ProductFormState = {
 };
 
 export default function ProductForm({ productId }: { productId?: string }) {
-  const router = useRouter();
   const editing = Boolean(productId);
   const [form, setForm] = useState<ProductFormState>(emptyForm);
   const [product, setProduct] = useState<AdminProduct | null>(null);
@@ -124,8 +122,10 @@ export default function ProductForm({ productId }: { productId?: string }) {
       setForm(toForm(savedProduct));
       setImageFile(null);
       setSuccess(imageFile ? "Product and image saved." : "Product saved.");
-      if (!editing) router.replace(`/admin/products/${encodeURIComponent(savedProduct.id)}`);
-      router.refresh();
+      if (!editing) {
+        window.location.replace(`/admin/products/${encodeURIComponent(savedProduct.id)}`);
+        return;
+      }
     } catch (saveError) {
       setError(errorMessage(saveError));
     } finally {

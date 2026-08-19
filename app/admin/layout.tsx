@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "../components/native-link";
 import { ExternalLink } from "lucide-react";
 import { requireAdminUser } from "@/app/admin-auth";
 import AdminNav from "./admin-nav";
@@ -26,4 +26,3 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
     </div>
   );
 }
-
