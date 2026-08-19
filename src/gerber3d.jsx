@@ -358,8 +358,8 @@ function buildBoardTexture(previewData, side = 'top', width = 2048, height = 140
   const padding = 56;
   const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY);
 
-  ctx.fillStyle = '#166a4a';
-  ctx.fillRect(0, 0, width, height);
+  ctx.clearRect(0, 0, width, height);
+  ctx.imageSmoothingEnabled = true;
 
   ctx.save();
   if (side === 'bottom') {
@@ -371,14 +371,6 @@ function buildBoardTexture(previewData, side = 'top', width = 2048, height = 140
   ctx.translate(-bounds.minX, -bounds.minY);
 
   drawLayerSet(ctx, side === 'bottom' ? previewData.bottom : previewData.top);
-
-  ctx.fillStyle = '#09121e';
-  for (const drill of previewData.drills.slice(0, 1400)) {
-    const r = Math.max((drill.diameter || 0.35) / 2, 0.08);
-    ctx.beginPath();
-    ctx.arc(drill.x, drill.y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
   ctx.restore();
   return offscreen;
@@ -450,6 +442,23 @@ function disposeMaterial(material) {
   material.dispose();
 }
 
+function createSurfaceMaterial(texture) {
+  return new THREE.MeshStandardMaterial({
+    map: texture,
+    color: 0xffffff,
+    roughness: 0.56,
+    metalness: 0.1,
+    side: THREE.FrontSide,
+    transparent: true,
+    alphaTest: 0.05,
+    depthTest: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -2,
+  });
+}
+
 function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   if (!canvas || !previewData) return () => {};
 
@@ -460,6 +469,7 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   const boardHeight = spanY;
   const boardLongest = Math.max(boardWidth, boardHeight);
   const thickness = 1.6;
+  const surfaceLift = Math.max(thickness * 0.01, 0.02);
   const centerX = (boardBounds.minX + boardBounds.maxX) / 2;
   const centerY = (boardBounds.minY + boardBounds.maxY) / 2;
 
@@ -478,6 +488,7 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   const boardGeometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 28, steps: 1 });
   boardGeometry.translate(0, 0, -thickness / 2);
   const boardMesh = new THREE.Mesh(boardGeometry, new THREE.MeshStandardMaterial({ color: 0x0e694b, roughness: 0.72, metalness: 0.08 }));
+  boardMesh.renderOrder = 0;
   scene.add(boardMesh);
 
   const topTexture = new THREE.CanvasTexture(buildBoardTexture(previewData, 'top'));
@@ -495,14 +506,16 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
   bottomTexture.anisotropy = anisotropy;
 
   const topGeometry = new THREE.ShapeGeometry(shape, 40);
-  topGeometry.translate(0, 0, thickness / 2 + 0.001);
-  const topMesh = new THREE.Mesh(topGeometry, new THREE.MeshStandardMaterial({ map: topTexture, color: 0xffffff, roughness: 0.56, metalness: 0.1, side: THREE.FrontSide }));
+  topGeometry.translate(0, 0, thickness / 2 + surfaceLift);
+  const topMesh = new THREE.Mesh(topGeometry, createSurfaceMaterial(topTexture));
+  topMesh.renderOrder = 2;
   scene.add(topMesh);
 
   const bottomGeometry = new THREE.ShapeGeometry(shape, 40);
-  bottomGeometry.translate(0, 0, -thickness / 2 - 0.001);
-  const bottomMesh = new THREE.Mesh(bottomGeometry, new THREE.MeshStandardMaterial({ map: bottomTexture, color: 0xffffff, roughness: 0.56, metalness: 0.1, side: THREE.FrontSide }));
+  bottomGeometry.translate(0, 0, -thickness / 2 - surfaceLift);
+  const bottomMesh = new THREE.Mesh(bottomGeometry, createSurfaceMaterial(bottomTexture));
   bottomMesh.rotateY(Math.PI);
+  bottomMesh.renderOrder = 2;
   scene.add(bottomMesh);
 
   for (const drill of previewData.drills.slice(0, 800)) {
@@ -513,6 +526,7 @@ function mountBoardViewer(canvas, previewData, { interactive = true } = {}) {
     holeGeometry.rotateX(Math.PI / 2);
     const holeMesh = new THREE.Mesh(holeGeometry, new THREE.MeshStandardMaterial({ color: 0x0b1120, roughness: 0.4, metalness: 0.2 }));
     holeMesh.position.set(localX, localY, 0);
+    holeMesh.renderOrder = 1;
     scene.add(holeMesh);
   }
 
