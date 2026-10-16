@@ -9,6 +9,7 @@ Trace is a commerce-first storefront for specialized electronics and test equipm
 - Local Gerber/Excellon workbench with ZIP import, layer controls and Ucamco reference-viewer access
 - Paid verification workflow with server-controlled Stripe pricing and signed webhook handling
 - Cloudflare D1 data model and low-cost R2 object storage with authorization-checked file access
+- Native Trace email/password accounts and Google sign-in, email verification, password recovery, and secure sessions
 - Account, cart, order, publishing, documentation and API routes
 
 ## Local development
@@ -31,7 +32,7 @@ pnpm build
 
 ## Configuration
 
-Copy `.env.example` to your local environment and set the values that apply. Stripe is optional for browsing the site, but required to collect lab-verification payments. `APP_ORIGIN` must be the exact HTTPS production origin.
+Copy `.env.example` to your local environment and set the values that apply. Follow [authentication setup and migration](docs/authentication.md) before enabling the new login. Stripe is optional for browsing the site, but required to collect lab-verification payments. `APP_ORIGIN` must be the exact HTTPS production origin.
 
 Cloudflare bindings are declared in `.openai/hosting.json`:
 
@@ -51,6 +52,7 @@ The repository remains at `OpenPCBs/web`; the customer-facing brand is Trace.
 
 ## Engineering and operational documentation
 
+- [Authentication setup and account migration](docs/authentication.md)
 - [Architecture and contribution rules](docs/architecture.md)
 - [Security model and reporting](SECURITY.md)
 - [Launch/compliance checklist and remaining owner decisions](docs/launch-checklist.md)

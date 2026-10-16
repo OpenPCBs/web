@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { chatGPTSignInPath, getChatGPTUser } from "@/app/chatgpt-auth";
+import { signInPath, getTraceUser } from "@/app/auth";
 import { SiteFooter, SiteHeader } from "@/app/components/site-shell";
 import { CartClient } from "./cart-client";
 import styles from "./cart.module.css";
@@ -18,7 +18,7 @@ function first(value: string | string[] | undefined): string {
 }
 
 export default async function CartPage({ searchParams }: { searchParams: CartSearchParams }) {
-  const [user, params] = await Promise.all([getChatGPTUser(), searchParams]);
+  const [user, params] = await Promise.all([getTraceUser(), searchParams]);
   const checkoutCancelled = first(params.checkout) === "cancelled";
 
   return (
@@ -34,7 +34,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
           <CartClient
             signedIn={Boolean(user)}
             displayName={user?.displayName ?? null}
-            signInHref={chatGPTSignInPath("/cart")}
+            signInHref={signInPath("/cart")}
             checkoutCancelled={checkoutCancelled}
           />
         </div>

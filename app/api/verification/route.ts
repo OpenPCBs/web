@@ -1,5 +1,5 @@
 import { desc, eq, inArray } from "drizzle-orm";
-import { getChatGPTUserFromRequest } from "@/app/chatgpt-auth";
+import { getTraceUserFromRequest } from "@/app/auth";
 import { getDb } from "@/db";
 import {
   designs,
@@ -22,7 +22,7 @@ import {
 } from "../_lib/verification";
 
 export async function GET(request: Request) {
-  const user = getChatGPTUserFromRequest(request);
+  const user = await getTraceUserFromRequest(request);
   if (!user) {
     return Response.json({
       pricing: verificationPricing(),
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = requireApiUser(request);
+    const user = await requireApiUser(request);
     const body = await readJsonObject(request);
     const revisionId = requiredString(body.revisionId, "revisionId", 100);
     const tier = normalizeVerificationTier(body.tier ?? body.serviceLevel);

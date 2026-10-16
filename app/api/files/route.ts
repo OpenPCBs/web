@@ -1,5 +1,5 @@
 import { and, asc, eq } from "drizzle-orm";
-import { getChatGPTUserFromRequest } from "@/app/chatgpt-auth";
+import { getTraceUserFromRequest } from "@/app/auth";
 import { getDb, getFilesBucket } from "@/db";
 import { designs, files, revisions } from "@/db/schema";
 import {
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       throw new ApiError(404, "not_found", "Revision not found.");
     }
 
-    const user = getChatGPTUserFromRequest(request);
+    const user = await getTraceUserFromRequest(request);
     const isOwner = user?.userId === revision.designOwnerId;
     const isPublished =
       revision.publicationStatus === "published" &&
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = requireApiUser(request);
+    const user = await requireApiUser(request);
     if (!request.headers.get("content-type")?.toLowerCase().includes("multipart/form-data")) {
       throw new ApiError(
         415,

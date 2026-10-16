@@ -12,7 +12,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
   try {
-    const user = requireApiUser(request);
+    const user = await requireApiUser(request);
     const { id } = await context.params;
     const db = getDb();
     const [row] = await db

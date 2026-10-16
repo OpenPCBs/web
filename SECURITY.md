@@ -6,10 +6,12 @@ This channel does not authorize testing, promise a bounty, or establish legal sa
 
 ## Deployment boundary
 
-Production requires Sites dispatch, which owns authentication and supplies the trusted `oai-authenticated-user-*` headers. Do not expose the Worker directly on another public origin: arbitrary incoming headers are not authentication. Disable direct Worker routes and enforce HTTPS at the hosting edge. Keep credentials in the provider secret store.
+Production remains behind Sites dispatch and Cloudflare. Trace application authentication uses Better Auth and database-backed sessions, not `oai-authenticated-user-*` headers. Identity headers never authenticate a Trace account. Restrict authentication to the configured HTTPS `AUTH_ORIGIN`, disable direct Worker routes, and keep credentials in the provider secret store. See [authentication setup](docs/authentication.md) before production cutover.
 
 ## Implemented controls
 
+- Verified-email/password and Google sign-in; scrypt password hashes; HttpOnly/Secure/SameSite=Lax cookies; single-use reset links and session revocation.
+- Atomic persisted authentication rate limits, CSRF/origin validation, OAuth state handling, and verified-email-only account linking.
 - Server-side roles and ownership checks; first-admin bootstrap only when no admin exists.
 - Same-origin checks for mutating API requests; the signed Stripe webhook is the only exception.
 - Persistent atomic per-minute write limits; 10 inquiries, 20 checkout operations, or 120 other writes per connection address per class.

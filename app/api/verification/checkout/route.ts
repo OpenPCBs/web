@@ -22,7 +22,7 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const user = requireApiUser(request);
+    const user = await requireApiUser(request);
     const body = await readJsonObject(request);
     requireTermsAcceptance(body);
     const db = getDb();

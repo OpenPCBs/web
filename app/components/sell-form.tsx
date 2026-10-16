@@ -229,7 +229,7 @@ export function SellForm({
       <section className={styles.signInPanel}>
         <h2>Sign in to create or edit a design</h2>
         <p>Drafts, revisions, and uploaded files are stored with your account.</p>
-        <Link className={styles.primaryButton} href={signInHref}>Sign in with ChatGPT</Link>
+        <Link className={styles.primaryButton} href={signInHref}>Sign in to Trace</Link>
       </section>
     );
   }

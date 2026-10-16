@@ -493,3 +493,5 @@ export const requestRateLimits = sqliteTable("request_rate_limits", {
   count: integer("count").notNull(),
   expiresAt: integer("expires_at").notNull(),
 }, (table) => [index("request_rate_limits_expiry_idx").on(table.expiresAt)]);
+
+export * from "./auth-schema";

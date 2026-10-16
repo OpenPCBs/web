@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { chatGPTSignOutPath, requireChatGPTUser } from "../chatgpt-auth";
+import { requireTraceUser } from "../auth";
 import { AccountClient } from "../components/account-client";
 import { SiteFooter, SiteHeader } from "../components/site-shell";
 import "./account.css";
@@ -26,7 +26,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Acco
 }
 
 async function AccountGate({ checkout, sessionId, returnTo }: { checkout?: string; sessionId?: string; returnTo: string }) {
-  const user = await requireChatGPTUser(returnTo);
+  const user = await requireTraceUser(returnTo);
 
   return (
     <>
@@ -35,7 +35,6 @@ async function AccountGate({ checkout, sessionId, returnTo }: { checkout?: strin
         user={{ displayName: user.displayName, email: user.email }}
         checkout={checkout}
         sessionId={sessionId}
-        signOutHref={chatGPTSignOutPath("/")}
       />
       <SiteFooter />
     </>

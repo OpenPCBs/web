@@ -20,10 +20,10 @@ export function securityHeaders(request: Request, response: Response): Response 
     ...(local ? [] : ["upgrade-insecure-requests"]),
   ].join("; "));
   headers.set("X-Content-Type-Options", "nosniff");
-  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Referrer-Policy", /^\/(api\/auth|login|register|logout|forgot-password|reset-password)(\/|$)/.test(url.pathname) ? "no-referrer" : "strict-origin-when-cross-origin");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
   if (url.protocol === "https:" && !local) headers.set("Strict-Transport-Security", "max-age=31536000");
-  if (/^\/(api|admin|account|cart)(\/|$)/.test(url.pathname)) {
+  if (/^\/(api|admin|account|cart|login|register|logout|forgot-password|reset-password)(\/|$)/.test(url.pathname)) {
     headers.set("Cache-Control", "private, no-store");
     headers.set("X-Robots-Tag", "noindex, nofollow");
   }

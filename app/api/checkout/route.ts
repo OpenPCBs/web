@@ -19,7 +19,7 @@ import type { ProductCheckoutSession } from "./checkout-service";
 
 export async function POST(request: Request) {
   try {
-    const user = requireApiUser(request);
+    const user = await requireApiUser(request);
     requireTermsAcceptance(await readJsonObject(request));
     const db = getDb();
     await persistUser(db, user);

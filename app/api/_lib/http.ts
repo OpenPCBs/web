@@ -1,4 +1,4 @@
-import { getChatGPTUserFromRequest, type ChatGPTUser } from "@/app/chatgpt-auth";
+import { getTraceUserFromRequest, type TraceUser } from "@/app/auth";
 import type { Database } from "@/db";
 import { eq } from "drizzle-orm";
 import { users } from "@/db/schema";
@@ -7,19 +7,19 @@ import { ApiError } from "@/lib/http/api-error";
 import { readBoundedJson } from "@/lib/security/request";
 export { ApiError };
 
-export function requireApiUser(request: Request): ChatGPTUser {
-  const user = getChatGPTUserFromRequest(request);
+export async function requireApiUser(request: Request): Promise<TraceUser> {
+  const user = await getTraceUserFromRequest(request);
   if (!user) {
     throw new ApiError(
       401,
       "authentication_required",
-      "Sign in with ChatGPT to use this endpoint.",
+      "Sign in to Trace to use this endpoint.",
     );
   }
   return user;
 }
 
-export async function persistUser(db: Database, user: ChatGPTUser) {
+export async function persistUser(db: Database, user: TraceUser) {
   const [existing] = await db
     .select({ status: users.status })
     .from(users)
@@ -52,8 +52,8 @@ export async function persistUser(db: Database, user: ChatGPTUser) {
 export async function requireActiveApiUser(
   request: Request,
   db: Database,
-): Promise<ChatGPTUser> {
-  const user = requireApiUser(request);
+): Promise<TraceUser> {
+  const user = await requireApiUser(request);
   await persistUser(db, user);
   return user;
 }

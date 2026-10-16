@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
-type RuntimeBindings = {
+type RuntimeBindings = import("../lib/auth/config").AuthEnvironment & {
   DB?: D1Database;
   FILES?: R2Bucket;
   STRIPE_SECRET_KEY?: string;

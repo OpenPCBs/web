@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "../components/native-link";
-import { chatGPTSignInPath, getChatGPTUser } from "@/app/chatgpt-auth";
+import { signInPath, getTraceUser } from "@/app/auth";
 import { CatalogBrowser } from "@/app/components/public-product-catalog";
 import styles from "@/app/components/product-catalog.module.css";
 import { SiteFooter, SiteHeader } from "@/app/components/site-shell";
@@ -41,7 +41,7 @@ export default async function StorePage({
 }: {
   searchParams: Promise<StoreSearchParams>;
 }) {
-  const [params, user] = await Promise.all([searchParams, getChatGPTUser()]);
+  const [params, user] = await Promise.all([searchParams, getTraceUser()]);
   const query = first(params.q);
   const category = first(params.category, 100);
   const availability = first(params.availability, 30);
@@ -68,7 +68,7 @@ export default async function StorePage({
             initialAvailability={availability}
             productSlug={productSlug}
             signedIn={Boolean(user)}
-            signInHref={chatGPTSignInPath(returnTo)}
+            signInHref={signInPath(returnTo)}
           />
         </div>
 

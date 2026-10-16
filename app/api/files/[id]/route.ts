@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { getChatGPTUserFromRequest } from "@/app/chatgpt-auth";
+import { getTraceUserFromRequest } from "@/app/auth";
 import { getDb, getFilesBucket } from "@/db";
 import { designs, files, revisions } from "@/db/schema";
 import {
@@ -61,7 +61,7 @@ async function serveFile(
     const [row] = await fileAccessRow(db, id);
     if (!row) throw new ApiError(404, "not_found", "File not found.");
 
-    const user = getChatGPTUserFromRequest(request);
+    const user = await getTraceUserFromRequest(request);
     const publicAccess =
       row.file.visibility === "public" &&
       row.publicationStatus === "published" &&
