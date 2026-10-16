@@ -10,10 +10,20 @@ import { verifyStripeSignature } from "../lib/security/stripe-signature";
 import { requireTermsAcceptance, addTermsMetadata } from "../lib/security/terms";
 import { parsePrivacyChoice } from "../lib/client/privacy";
 import { site } from "../lib/config/site";
+import { safeImageSource } from "../lib/client/image-source";
 
 const origin = "https://bcruse.dev";
 const mutation = (headers: Record<string, string> = {}, path = "/api/cart") => new Request(origin + path, { method: "POST", headers });
 const hasStatus = (status: number) => (error: unknown) => error instanceof ApiError && error.status === status;
+
+test("image sources reject executable schemes, HTML, credentials, and foreign object URLs", () => {
+  for (const source of ["javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "data:image/svg+xml,<svg/>", "http://insecure.example/x.png", "https://user:secret@example.com/image", "blob:https://other.example/id", "/\\other.example/x.png", '<img src=x onerror=alert(1)>']) {
+    assert.equal(safeImageSource(source, origin), null);
+  }
+  assert.deepEqual(safeImageSource("/api/products/p/image", origin), { src: "/api/products/p/image", local: true });
+  assert.deepEqual(safeImageSource("https://supplier.example/image.png", origin), { src: "https://supplier.example/image.png", local: false });
+  assert.deepEqual(safeImageSource("blob:https://bcruse.dev/id", origin), { src: "blob:https://bcruse.dev/id", local: true });
+});
 
 test("mutations require the exact origin and reject cross-site and sibling origins", () => {
   assert.doesNotThrow(() => assertSameOrigin(mutation({ origin, "sec-fetch-site": "same-origin" })));
