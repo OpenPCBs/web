@@ -1,6 +1,6 @@
 /** Only site-relative assets, same-origin object URLs and HTTPS images are allowed. */
-export function safeImageSource(value: string | undefined, origin: string): { src: string; local: boolean } | null {
-  if (!value || /[\u0000-\u0020<>"']/.test(value)) return null;
+export function safeImageSource(value: unknown, origin: string): { src: string; local: boolean } | null {
+  if (typeof value !== "string" || !value || /[\u0000-\u0020<>"']/.test(value)) return null;
   try {
     const url = new URL(value, origin);
     if (url.username || url.password) return null;
