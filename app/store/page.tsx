@@ -6,9 +6,9 @@ import styles from "@/app/components/product-catalog.module.css";
 import { SiteFooter, SiteHeader } from "@/app/components/site-shell";
 
 export const metadata: Metadata = {
-  title: { absolute: "Electronics Catalog | Thevenin Supply" },
+  title: { absolute: "Electronics Catalog | Trace" },
   description:
-    "Search Thevenin Supply's live electronics catalog by product, category, and published availability.",
+    "Search Trace's live electronics catalog by product, category, and published availability.",
 };
 
 export const dynamic = "force-dynamic";
@@ -51,9 +51,9 @@ export default async function StorePage({
   return (
     <>
       <SiteHeader active="store" />
-      <main className={styles.page}>
+      <main id="main-content" tabIndex={-1} className={styles.page}>
         <section className={`${styles.container} ${styles.storeIntro}`} aria-labelledby="store-title">
-          <span className={styles.kicker}>THEVENIN SUPPLY · LIVE CATALOG</span>
+          <span className={styles.kicker}>TRACE SUPPLY · LIVE CATALOG</span>
           <h1 id="store-title">Specialized electronics and test equipment</h1>
           <p>
             This catalog shows published database inventory only. Search by product name,

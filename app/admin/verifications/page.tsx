@@ -73,7 +73,7 @@ export default function VerificationsPage() {
 
   return (
     <>
-      <PageHeading eyebrow="Thevenin Works lab" title="Verification queue" description="Move paid requests through review, record customer-facing status events, and issue revision-bound verification." />
+      <PageHeading eyebrow="Trace Works lab" title="Verification queue" description="Move paid requests through review, record customer-facing status events, and issue revision-bound verification." />
       {error ? <div className="admin-alert" role="alert">{error}</div> : null}
       {notice ? <div className="admin-alert" data-tone="success" role="status">{notice}</div> : null}
       <div className="admin-filter-bar">

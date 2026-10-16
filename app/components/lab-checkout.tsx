@@ -1,5 +1,9 @@
 "use client";
 
+import { apiMessage, objectString } from "@/lib/client/api";
+
+import { TermsAcceptance } from "./terms-acceptance";
+import { site } from "@/lib/config/site";
 import { useState } from "react";
 import { ArrowRight, CheckCircle2, CircleAlert, LoaderCircle } from "lucide-react";
 
@@ -14,13 +18,14 @@ type LabCheckoutProps = {
 type Notice = { tone: "success" | "error"; message: string } | null;
 
 export function LabCheckout({ tier, revisionId, requestId }: LabCheckoutProps) {
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const isCustomQuote = tier === "custom-campaign";
   const hasContext = Boolean(revisionId || requestId);
 
   async function beginRequest() {
-    if (!hasContext) return;
+    if (!hasContext || (!isCustomQuote && !acceptedTerms)) return;
     setLoading(true);
     setNotice(null);
 
@@ -38,7 +43,7 @@ export function LabCheckout({ tier, revisionId, requestId }: LabCheckoutProps) {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, acceptedTermsVersion: site.policyVersion }),
       });
       const payload = (await response.json()) as unknown;
       if (!response.ok) {
@@ -47,7 +52,7 @@ export function LabCheckout({ tier, revisionId, requestId }: LabCheckoutProps) {
 
       if (!isCustomQuote) {
         const url = objectString(payload, "url");
-        if (!url) throw new Error("Stripe did not return a secure checkout link.");
+        if (!url || new URL(url).protocol !== "https:" || new URL(url).hostname !== "checkout.stripe.com") throw new Error("Stripe did not return a secure checkout link.");
         window.location.assign(url);
         return;
       }
@@ -81,7 +86,8 @@ export function LabCheckout({ tier, revisionId, requestId }: LabCheckoutProps) {
 
   return (
     <div className="checkout-action" data-state={notice?.tone ?? "ready"}>
-      <button className="button full-button" type="button" onClick={beginRequest} disabled={loading}>
+      {!isCustomQuote ? <TermsAcceptance checked={acceptedTerms} onChange={setAcceptedTerms} /> : null}
+      <button className="button full-button" type="button" onClick={beginRequest} disabled={loading || (!isCustomQuote && !acceptedTerms)}>
         {loading ? <LoaderCircle className="spin" size={17} /> : null}
         {loading
           ? "Saving request…"
@@ -98,22 +104,4 @@ export function LabCheckout({ tier, revisionId, requestId }: LabCheckoutProps) {
       ) : null}
     </div>
   );
-}
-
-function apiMessage(payload: unknown, fallback: string): string {
-  if (!payload || typeof payload !== "object") return fallback;
-  const error = (payload as Record<string, unknown>).error;
-  if (typeof error === "string" && error) return error;
-  if (error && typeof error === "object") {
-    const message = (error as Record<string, unknown>).message;
-    if (typeof message === "string" && message) return message;
-  }
-  const message = (payload as Record<string, unknown>).message;
-  return typeof message === "string" && message ? message : fallback;
-}
-
-function objectString(payload: unknown, key: string): string | undefined {
-  if (!payload || typeof payload !== "object") return undefined;
-  const value = (payload as Record<string, unknown>)[key];
-  return typeof value === "string" && value ? value : undefined;
 }

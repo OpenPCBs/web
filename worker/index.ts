@@ -1,3 +1,7 @@
+import { ApiError, errorResponse } from "../lib/http/api-error";
+import { assertSameOrigin, boundRequestBody, isMutation } from "../lib/security/request";
+import { securityHeaders } from "../lib/security/headers";
+import { enforceRateLimit } from "../lib/security/rate-limit";
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 
@@ -21,6 +25,24 @@ interface ExecutionContext {
 
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      if (url.pathname.startsWith("/api/") && isMutation(request)) {
+        assertSameOrigin(request);
+        request = boundRequestBody(request);
+        if (url.pathname !== "/api/stripe/webhook") await enforceRateLimit(request, env.DB);
+      }
+      return securityHeaders(request, await serve(request, env, ctx));
+    } catch (error) {
+      const failure = error instanceof ApiError ? error : new ApiError(503, "service_unavailable", "The service is temporarily unavailable.");
+      const response = errorResponse(failure);
+      if (failure.status === 429) response.headers.set("Retry-After", "60");
+      return securityHeaders(request, response);
+    }
+  },
+};
+
+async function serve(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
@@ -33,7 +55,6 @@ const worker = {
       }, allowedWidths);
     }
     return handler.fetch(request, env, ctx);
-  },
-};
+}
 
 export default worker;

@@ -264,7 +264,7 @@ export function SellForm({
 
       <label className={styles.filePicker}>
         <strong>Attach files to the current revision</strong>
-        <span>Up to 50 MiB each. New uploads stay private until you explicitly change their visibility.</span>
+        <span>Up to 16 MiB each. New uploads stay private until you explicitly change their visibility.</span>
         <input multiple type="file" onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))} />
       </label>
       {selectedFiles.length ? <ul className={styles.selectedFiles}>{selectedFiles.map((file, index) => <li key={`${file.name}-${file.size}-${index}`}>{file.name}<span>{formatBytes(file.size)}</span></li>)}</ul> : null}

@@ -3,15 +3,9 @@ import type { Database } from "@/db";
 import { eq } from "drizzle-orm";
 import { users } from "@/db/schema";
 
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+import { ApiError } from "@/lib/http/api-error";
+import { readBoundedJson } from "@/lib/security/request";
+export { ApiError };
 
 export function requireApiUser(request: Request): ChatGPTUser {
   const user = getChatGPTUserFromRequest(request);
@@ -89,7 +83,7 @@ export function handleApiError(error: unknown): Response {
         error: {
           code: "storage_unavailable",
           message:
-            "Persistent storage is not ready. Configure D1 and apply the generated migration.",
+            "This service is temporarily unavailable. Please try again later.",
         },
       },
       { status: 503 },
@@ -101,32 +95,21 @@ export function handleApiError(error: unknown): Response {
       {
         error: {
           code: "file_storage_unavailable",
-          message: "File storage is not ready. Configure the FILES R2 binding.",
+          message: "File storage is temporarily unavailable. Please try again later.",
         },
       },
       { status: 503 },
     );
   }
 
-  console.error(error);
+  console.error("Unhandled API error", { type: error instanceof Error ? error.name : "UnknownError" });
   return Response.json(
     { error: { code: "internal_error", message: "Unexpected server error." } },
     { status: 500 },
   );
 }
 
-export async function readJsonObject(request: Request): Promise<Record<string, unknown>> {
-  let value: unknown;
-  try {
-    value = await request.json();
-  } catch {
-    throw new ApiError(400, "invalid_json", "Request body must be valid JSON.");
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(400, "invalid_body", "Request body must be a JSON object.");
-  }
-  return value as Record<string, unknown>;
-}
+export const readJsonObject = readBoundedJson;
 
 export function requiredString(
   value: unknown,

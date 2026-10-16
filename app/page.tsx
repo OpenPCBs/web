@@ -6,9 +6,9 @@ import styles from "./components/product-catalog.module.css";
 import { SiteFooter, SiteHeader } from "./components/site-shell";
 
 export const metadata: Metadata = {
-  title: { absolute: "Thevenin Supply | Specialized Electronics & Test Equipment" },
+  title: { absolute: "Trace | Specialized Electronics & Test Equipment" },
   description:
-    "Source published electronics and test equipment inventory, manage an account-backed cart, and access Thevenin Works engineering services.",
+    "Source published electronics and test equipment inventory, manage an account-backed cart, and access Trace Works engineering services.",
 };
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export default async function Home() {
   return (
     <>
       <SiteHeader />
-      <main className={styles.page}>
+      <main id="main-content" tabIndex={-1} className={styles.page}>
         <section className={styles.hero}>
           <div className={`${styles.container} ${styles.heroGrid}`}>
             <div className={styles.heroCopy}>
@@ -84,8 +84,8 @@ export default async function Home() {
 
         <section className={`${styles.container} ${styles.works}`} aria-labelledby="works-title">
           <div className={styles.worksMark}>
-            <span aria-hidden="true">TW</span>
-            <div><b>THEVENIN WORKS</b><small>ENGINEERING DIVISION</small></div>
+            <span aria-hidden="true">T</span>
+            <div><b>TRACE WORKS</b><small>ENGINEERING DIVISION</small></div>
           </div>
           <div>
             <h2 id="works-title">When procurement needs to become working hardware.</h2>
@@ -96,7 +96,7 @@ export default async function Home() {
 
         <section className={styles.nameStory}>
           <div className={styles.container}>
-            <span className={styles.kicker}>WHY THEVENIN?</span>
+            <span className={styles.kicker}>WHY TRACE?</span>
             <p>
               Thévenin&apos;s theorem reduces a complex electrical network to one dependable
               source. Our promise is similar: reduce complex electronics procurement to one

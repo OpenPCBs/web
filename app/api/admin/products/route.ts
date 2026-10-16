@@ -5,9 +5,7 @@ import { getDb } from "@/db";
 import { products } from "@/db/schema";
 import {
   ApiError,
-  adminBoolean,
   adminError,
-  adminInteger,
   adminString,
   auditAdminAction,
   enumValue,

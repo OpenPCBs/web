@@ -1,5 +1,7 @@
 "use client";
 
+import { PrivacyImage } from "@/app/components/privacy-image";
+
 import Link from "./native-link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
@@ -20,7 +22,7 @@ function Cover({ design }: { design: DesignRecord }) {
   return (
     <div className={styles.cover}>
       {url && !failed ? (
-        <img src={url} alt={design.title} onError={() => setFailed(true)} />
+        <PrivacyImage src={url} alt={design.title} onError={() => setFailed(true)} />
       ) : (
         <div><span>Cover image not provided</span><small>{design.category}</small></div>
       )}
@@ -123,7 +125,7 @@ export function DesignMarketplace({
     <>
       <section className={styles.marketHero} aria-labelledby="marketplace-title">
         <div>
-          <span className={styles.kicker}>THEVENIN WORKS · PUBLISHED DESIGNS</span>
+          <span className={styles.kicker}>TRACE WORKS · PUBLISHED DESIGNS</span>
           <h1 id="marketplace-title">Versioned electronics designs</h1>
           <p>
             Browse records published by their owners. Every title, description, price,

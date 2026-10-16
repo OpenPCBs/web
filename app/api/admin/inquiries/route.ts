@@ -5,7 +5,7 @@ import { inquiries } from "@/db/schema";
 import { adminError, enumValue, parseLimit } from "../_lib/admin-api";
 import { serializeInquiry } from "./inquiry-fields";
 
-const types = ["support", "quote", "sourcing", "license"] as const;
+import { inquiryTypes as types } from "@/lib/config/inquiries";
 const statuses = ["new", "in_progress", "resolved", "closed"] as const;
 
 export async function GET(request: Request) {

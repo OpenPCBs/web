@@ -372,7 +372,7 @@ export const verificationEvents = sqliteTable(
 
 export const storeSettings = sqliteTable("store_settings", {
   id: text("id").primaryKey(),
-  storeName: text("store_name").notNull().default("Thevenin Supply"),
+  storeName: text("store_name").notNull().default("Trace"),
   supportEmail: text("support_email").notNull().default(""),
   currency: text("currency").notNull().default("usd"),
   publicOrigin: text("public_origin"),
@@ -443,7 +443,7 @@ export const inquiries = sqliteTable(
   {
     id: text("id").primaryKey(),
     type: text("type", {
-      enum: ["support", "quote", "sourcing", "license"],
+      enum: ["support", "quote", "sourcing", "license", "privacy", "security", "copyright", "accessibility"],
     }).notNull(),
     status: text("status", {
       enum: ["new", "in_progress", "resolved", "closed"],
@@ -487,3 +487,9 @@ export type RevisionVerificationStatus =
   (typeof revisions.$inferSelect)["verificationStatus"];
 export type VerificationRequestStatus =
   (typeof verificationRequests.$inferSelect)["status"];
+
+export const requestRateLimits = sqliteTable("request_rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, (table) => [index("request_rate_limits_expiry_idx").on(table.expiresAt)]);

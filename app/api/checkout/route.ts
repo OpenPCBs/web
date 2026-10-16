@@ -1,3 +1,4 @@
+import { requireTermsAcceptance, addTermsMetadata } from "@/lib/security/terms";
 import { eq } from "drizzle-orm";
 import {
   getAppOrigin,
@@ -12,12 +13,14 @@ import {
   handleApiError,
   persistUser,
   requireApiUser,
+  readJsonObject,
 } from "../_lib/http";
 import type { ProductCheckoutSession } from "./checkout-service";
 
 export async function POST(request: Request) {
   try {
     const user = requireApiUser(request);
+    requireTermsAcceptance(await readJsonObject(request));
     const db = getDb();
     await persistUser(db, user);
     const [store, effective, origin] = await Promise.all([
@@ -175,6 +178,7 @@ function checkoutForm(input: {
   }>;
 }) {
   const form = new URLSearchParams();
+  addTermsMetadata(form);
   form.set("mode", "payment");
   form.set(
     "success_url",

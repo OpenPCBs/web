@@ -1,3 +1,4 @@
+import { site } from "@/lib/config/site";
 import { eq } from "drizzle-orm";
 import { getBindings, getDb, type Database } from "@/db";
 import { storeSettings, stripeSettings } from "@/db/schema";
@@ -78,9 +79,9 @@ export async function getStoreConfiguration(db: Database = getDb()) {
       .where(eq(storeSettings.id, "store"))
       .limit(1);
     return (
-      row ?? {
+      (row ? { ...row, storeName: /^(Thevenin(?: Supply| Electronics Supply)?|OpenPCBs?)$/i.test(row.storeName) ? site.name : row.storeName } : undefined) ?? {
         id: "store",
-        storeName: "Thevenin Supply",
+        storeName: site.name,
         supportEmail: "",
         currency: "usd",
         publicOrigin: null,
@@ -97,7 +98,7 @@ export async function getStoreConfiguration(db: Database = getDb()) {
     if (!isMissingStorageError(error)) throw error;
     return {
       id: "store",
-      storeName: "Thevenin Supply",
+      storeName: site.name,
       supportEmail: "",
       currency: "usd",
       publicOrigin: null,

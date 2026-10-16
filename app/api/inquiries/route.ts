@@ -11,7 +11,7 @@ import {
   requiredString,
 } from "../_lib/http";
 
-const inquiryTypes = ["support", "quote", "sourcing", "license"] as const;
+import { inquiryTypes } from "@/lib/config/inquiries";
 
 export async function POST(request: Request) {
   try {

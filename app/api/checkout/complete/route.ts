@@ -9,7 +9,6 @@ import {
   readJsonObject,
   requiredString,
   requireActiveApiUser,
-  requireApiUser,
 } from "../../_lib/http";
 import {
   applyPaidProductCheckoutSession,

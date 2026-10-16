@@ -7,7 +7,7 @@ import "./account.css";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Workspace",
-  description: "Manage your actual Thevenin orders, designs, and verification requests.",
+  description: "Manage your actual Trace orders, designs, and verification requests.",
 };
 
 type AccountSearchParams = Promise<Record<string, string | string[] | undefined>>;

@@ -1,5 +1,7 @@
 "use client";
 
+import { PrivacyImage } from "@/app/components/privacy-image";
+
 import Link from "../../components/native-link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, Edit3, Plus, Search, Send } from "lucide-react";
@@ -89,7 +91,7 @@ export default function ProductsPage() {
               <tbody>
                 {filtered.map((product) => (
                   <tr key={product.id}>
-                    <td><div className="admin-product-cell"><span className="admin-product-thumb">{product.imageUrl ? <img src={product.imageUrl} alt="" /> : product.name.slice(0, 1)}</span><span><strong>{product.name}</strong><small>/{product.slug}</small></span></div></td>
+                    <td><div className="admin-product-cell"><span className="admin-product-thumb">{product.imageUrl ? <PrivacyImage src={product.imageUrl} alt="" /> : product.name.slice(0, 1)}</span><span><strong>{product.name}</strong><small>/{product.slug}</small></span></div></td>
                     <td><code>{product.sku}</code></td>
                     <td>{product.category}</td>
                     <td><strong>{money(product.priceCents, product.currency)}</strong></td>

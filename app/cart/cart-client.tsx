@@ -1,5 +1,10 @@
 "use client";
 
+import { PrivacyImage } from "@/app/components/privacy-image";
+
+import { TermsAcceptance } from "../components/terms-acceptance";
+import { site } from "@/lib/config/site";
+
 import Link from "../components/native-link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -73,7 +78,7 @@ function safeCheckoutUrl(payload: unknown): string | null {
   if (typeof value !== "string") return null;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+    return url.protocol === "https:" && url.hostname === "checkout.stripe.com" ? url.toString() : null;
   } catch {
     return null;
   }
@@ -85,7 +90,7 @@ function CartImage({ item }: { item: CartItemRecord }) {
   return (
     <div className={styles.thumb}>
       {imageUrl && !failed ? (
-        <img src={imageUrl} alt={item.product.name} onError={() => setFailed(true)} />
+        <PrivacyImage src={imageUrl} alt={item.product.name} onError={() => setFailed(true)} />
       ) : (
         <span>Image not provided</span>
       )}
@@ -108,6 +113,7 @@ export function CartClient({
   const [state, setState] = useState<CartState>(signedIn ? "loading" : "idle");
   const [error, setError] = useState("");
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [needsSignIn, setNeedsSignIn] = useState(!signedIn);
 
@@ -208,13 +214,14 @@ export function CartClient({
   }
 
   async function checkout() {
-    if (checkoutBusy || !cart?.items.length) return;
+    if (checkoutBusy || !cart?.items.length || !acceptedTerms) return;
     setCheckoutBusy(true);
     setError("");
     try {
       const response = await fetch("/api/checkout", {
         method: "POST",
-        headers: { Accept: "application/json" },
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ acceptedTermsVersion: site.policyVersion }),
       });
       const payload: unknown = await response.json().catch(() => null);
       if (response.status === 401) {
@@ -243,7 +250,7 @@ export function CartClient({
         <span>ACCOUNT CART</span>
         <h2 id="cart-sign-in-title">Sign in to view and save your cart</h2>
         <p>
-          Thevenin stores carts with your account so quantities and server-confirmed prices
+          Trace stores carts with your account so quantities and server-confirmed prices
           persist between devices. No sample cart or browser-only cart is shown.
         </p>
         <Link className={styles.primaryButton} href={signInHref}>Sign in with ChatGPT</Link>
@@ -333,11 +340,12 @@ export function CartClient({
             <div><dt>Subtotal</dt><dd>{formatCurrency(cart.subtotalCents, cart.currency)}</dd></div>
             <div><dt>Tax and shipping</dt><dd>Calculated at checkout</dd></div>
           </dl>
+          <TermsAcceptance checked={acceptedTerms} onChange={setAcceptedTerms} />
           <button
             className={styles.checkoutButton}
             type="button"
             onClick={() => void checkout()}
-            disabled={checkoutBusy || Boolean(busyProductId)}
+            disabled={!acceptedTerms || checkoutBusy || Boolean(busyProductId)}
           >
             {checkoutBusy ? "Opening secure checkout…" : "Continue to secure checkout"}
           </button>

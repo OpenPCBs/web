@@ -4,7 +4,7 @@ import styles from "@/app/components/design-works.module.css";
 import { DivisionBanner, SiteFooter, SiteHeader } from "@/app/components/site-shell";
 
 export const metadata: Metadata = {
-  title: { absolute: "Published Engineering Designs | Thevenin Works" },
+  title: { absolute: "Published Engineering Designs | Trace Works" },
   description: "Browse real, owner-published electronics designs and their persisted revision records.",
 };
 
@@ -25,7 +25,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     <>
       <SiteHeader active="works" />
       <DivisionBanner />
-      <main className={styles.page}>
+      <main id="main-content" tabIndex={-1} className={styles.page}>
         <div className={styles.container}>
           <DesignMarketplace
             initialQuery={first(params.q)}

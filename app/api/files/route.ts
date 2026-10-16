@@ -9,7 +9,7 @@ import {
   requireApiUser,
 } from "../_lib/http";
 
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
+import { MAX_UPLOAD_BYTES as MAX_FILE_BYTES } from "@/lib/security/request";
 const FILE_KINDS = new Set([
   "gerber",
   "drill",
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       throw new ApiError(
         413,
         "file_too_large",
-        "Each file must be between 1 byte and 50 MiB.",
+        "Each file must be between 1 byte and 16 MiB.",
       );
     }
     if (!FILE_KINDS.has(requestedKind)) {

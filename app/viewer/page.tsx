@@ -3,7 +3,7 @@ import GerberWorkbench from "../components/gerber-workbench";
 import { DivisionBanner, SiteFooter, SiteHeader } from "../components/site-shell";
 
 export const metadata: Metadata = {
-  title: "Gerber Workbench | Thevenin Works",
+  title: "Gerber Workbench | Trace Works",
   description: "Inspect Gerber and Excellon fabrication packages locally, then cross-check them with Ucamco Reference CAM.",
 };
 
@@ -12,10 +12,10 @@ export default function ViewerPage() {
     <>
       <SiteHeader active="works" />
       <DivisionBanner />
-      <main className="gerber-page">
+      <main id="main-content" tabIndex={-1} className="gerber-page">
         <section className="gerber-page-intro shell">
           <div>
-            <span className="kicker">THEVENIN WORKS · LOCAL-FIRST INSPECTION</span>
+            <span className="kicker">TRACE WORKS · LOCAL-FIRST INSPECTION</span>
             <h1>See the board the fab will see.</h1>
             <p>Open a fabrication ZIP or individual Gerber and Excellon layers. Inspect the complete stack locally, then use Ucamco Reference CAM for an authoritative second pass.</p>
           </div>

@@ -7,7 +7,6 @@ import {
   handleApiError,
   readJsonObject,
   requireActiveApiUser,
-  requireApiUser,
 } from "../../_lib/http";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -83,9 +82,7 @@ async function serveFile(
       "Content-Disposition": contentDisposition(row.file.originalName),
       ETag: object.httpEtag,
       "X-Content-Type-Options": "nosniff",
-      "Cache-Control": publicAccess
-        ? "public, max-age=3600, immutable"
-        : "private, no-store",
+      "Cache-Control": "private, no-store",
     });
     if (request.headers.get("if-none-match") === object.httpEtag) {
       return new Response(null, { status: 304, headers });

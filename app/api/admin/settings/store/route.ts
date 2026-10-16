@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { requireAdminRequest } from "@/app/admin-auth";
 import { getStoreConfiguration } from "@/app/admin-settings";
 import { readJsonObject } from "@/app/api/_lib/http";

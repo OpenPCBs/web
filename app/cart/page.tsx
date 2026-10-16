@@ -6,7 +6,7 @@ import styles from "./cart.module.css";
 
 export const metadata: Metadata = {
   title: "Cart",
-  description: "Review products saved to your account-backed Thevenin Supply cart.",
+  description: "Review products saved to your account-backed Trace cart.",
 };
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
   return (
     <>
       <SiteHeader active="store" />
-      <main className={styles.page}>
+      <main id="main-content" tabIndex={-1} className={styles.page}>
         <div className={styles.container}>
           <header className={styles.heading}>
             <span>PROCUREMENT</span>

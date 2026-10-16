@@ -96,7 +96,7 @@ export type InquiryStatus = "new" | "in_progress" | "resolved" | "closed";
 
 export type AdminInquiry = {
   id: string;
-  type: "support" | "quote" | "sourcing" | "license";
+  type: import("@/lib/config/inquiries").InquiryType;
   message: string;
   name: string;
   email: string;

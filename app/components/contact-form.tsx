@@ -1,16 +1,12 @@
 "use client";
 
+import { apiMessage, objectString } from "@/lib/client/api";
+
 import { type FormEvent, useState } from "react";
 import { CheckCircle2, CircleAlert, LoaderCircle, Send } from "lucide-react";
 
-const inquiryTypes = [
-  ["support", "Order or technical support"],
-  ["quote", "Product or project quote"],
-  ["sourcing", "Sourcing request"],
-  ["license", "Design license or custom build"],
-] as const;
+import { inquiryOptions, type InquiryType } from "@/lib/config/inquiries";
 
-type InquiryType = (typeof inquiryTypes)[number][0];
 type Notice = { tone: "success" | "error"; message: string; reference?: string } | null;
 
 export function ContactForm({
@@ -70,7 +66,7 @@ export function ContactForm({
         <label>
           Request type
           <select name="type" defaultValue={initialType}>
-            {inquiryTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            {inquiryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
         <label>
@@ -78,7 +74,7 @@ export function ContactForm({
           <input name="name" autoComplete="name" required maxLength={120} />
         </label>
         <label>
-          Work email
+          Email
           <input name="email" type="email" autoComplete="email" required maxLength={200} />
         </label>
         <label>
@@ -96,6 +92,7 @@ export function ContactForm({
       </label>
       <input type="hidden" name="context" value={context ?? ""} />
       <label className="contact-honeypot" aria-hidden="true">Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
+      <p className="form-privacy-note">We use these details to handle your request. <a href="/legal/privacy">Read the privacy notice</a>. Do not include passwords, card details, or identity documents.</p>
       <button className="commerce-button contact-submit" type="submit" disabled={saving}>
         {saving ? <LoaderCircle className="spin" size={17} /> : <Send size={16} />}
         {saving ? "Saving request…" : "Send request"}
@@ -108,22 +105,4 @@ export function ContactForm({
       ) : null}
     </form>
   );
-}
-
-function apiMessage(payload: unknown): string {
-  if (!payload || typeof payload !== "object") return "We could not save your request. Please try again.";
-  const error = (payload as Record<string, unknown>).error;
-  if (typeof error === "string" && error) return error;
-  if (error && typeof error === "object") {
-    const message = (error as Record<string, unknown>).message;
-    if (typeof message === "string" && message) return message;
-  }
-  const message = (payload as Record<string, unknown>).message;
-  return typeof message === "string" && message ? message : "We could not save your request. Please try again.";
-}
-
-function objectString(payload: unknown, key: string): string | undefined {
-  if (!payload || typeof payload !== "object") return undefined;
-  const value = (payload as Record<string, unknown>)[key];
-  return typeof value === "string" && value ? value : undefined;
 }

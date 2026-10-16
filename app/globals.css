@@ -58,7 +58,7 @@ nav a:hover, nav .nav-active, .text-link:hover { color: var(--copper-dark); }
 .stock-dot { color: #76c99c; }
 .stock-dot::before { content: ""; width: 6px; height: 6px; display: inline-block; margin-right: 7px; border-radius: 50%; background: #54c586; box-shadow: 0 0 0 5px rgba(84,197,134,.1); }
 .analyzer-chassis { width: 84%; min-height: 238px; position: relative; align-self: center; justify-self: center; display: grid; grid-template-columns: 1fr 94px; gap: 16px; padding: 22px; border: 1px solid #4f5751; border-radius: 10px; background: linear-gradient(145deg, #585e59, #292e2a 58%, #1f2420); box-shadow: 0 28px 38px rgba(0,0,0,.38), inset 0 1px rgba(255,255,255,.12); }
-.analyzer-chassis::before { content: "THEVENIN / POWER ANALYSIS"; position: absolute; left: 20px; top: -25px; color: #88918b; font: 600 8px var(--mono); letter-spacing: .11em; }
+.analyzer-chassis::before { content: "TRACE / POWER ANALYSIS"; position: absolute; left: 20px; top: -25px; color: #88918b; font: 600 8px var(--mono); letter-spacing: .11em; }
 .analyzer-screen { min-width: 0; display: grid; grid-template-rows: auto 1fr auto; padding: 14px; overflow: hidden; border: 5px solid #171b18; border-radius: 5px; background: #07140f; box-shadow: inset 0 0 26px rgba(19,165,102,.1); }
 .screen-label { color: #8ba799; font: 600 8px var(--mono); letter-spacing: .08em; }
 .screen-chart { display: flex; align-items: end; gap: 7px; padding: 15px 4px 10px; border-bottom: 1px solid #263b31; background: linear-gradient(rgba(71,113,90,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(71,113,90,.12) 1px, transparent 1px); background-size: 18px 18px; }
@@ -120,7 +120,7 @@ h1 em { color: var(--copper); font-style: normal; }
 .stage-readout { border-top: 1px solid #2b332d; }
 .stage-readout b { color: #e9eee9; font-weight: 600; }
 .board { width: 72%; aspect-ratio: 1.5; position: relative; align-self: center; justify-self: center; transform: perspective(900px) rotateX(58deg) rotateZ(-28deg); border: 2px solid #35866e; border-radius: 18px; background: linear-gradient(135deg, #0a5b45, #0d7457); box-shadow: -12px 16px 0 #073c30, -32px 42px 50px rgba(0,0,0,.45), inset 0 0 50px rgba(103, 255, 196, .08); }
-.board::before { content: "THEVENIN WORKS / REV 1.4"; position: absolute; left: 9%; top: 12%; color: rgba(235,245,237,.62); font: 700 9px var(--mono); letter-spacing: .13em; }
+.board::before { content: "TRACE WORKS / REV 1.4"; position: absolute; left: 9%; top: 12%; color: rgba(235,245,237,.62); font: 700 9px var(--mono); letter-spacing: .13em; }
 .board::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 22% 75%, #d7b369 0 2px, transparent 3px), radial-gradient(circle at 76% 22%, #d7b369 0 2px, transparent 3px); background-size: 24px 24px, 31px 31px; opacity: .85; }
 .board i { --x: calc(10% + (var(--i) % 6) * 15%); --y: calc(22% + (var(--i) % 3) * 26%); width: 8px; height: 8px; position: absolute; left: var(--x); top: var(--y); z-index: 1; border: 2px solid #e0bd70; border-radius: 50%; background: #0b4939; box-shadow: 0 0 0 2px rgba(217,176,91,.25); }
 .trace { position: absolute; z-index: 1; height: 4px; border-radius: 99px; background: #d7b369; box-shadow: 0 0 7px rgba(247,203,111,.35); transform-origin: left; }
@@ -557,7 +557,7 @@ h1 em { color: var(--copper); font-style: normal; }
 }
 
 
-/* Thevenin catalog: practical B2B commerce density */
+/* Trace catalog: practical B2B commerce density */
 .catalog-page, .design-detail-page {
   --trade-blue: #164f78;
   --trade-blue-dark: #0d3653;
@@ -672,7 +672,7 @@ h1 em { color: var(--copper); font-style: normal; }
   .product-card-specs div { min-height: 30px; }
 }
 
-/* Thevenin storefront shell: familiar B2B distributor structure */
+/* Trace storefront shell: familiar B2B distributor structure */
 :root {
   --ink: #17232c;
   --muted: #5e6972;
@@ -839,7 +839,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .commerce-button:hover, .commerce-product-card:hover, .hero-product:hover .hero-product-image img, .commerce-product-card:hover .commerce-product-image img, .hero-product-info a:hover svg, .home-section-head > a:hover svg { transform: none; }
 }
 
-/* Thevenin Works · Gerber workbench */
+/* Trace Works · Gerber workbench */
 .gerber-page { padding-bottom: 108px; }
 .gerber-page-intro { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 64px; padding-block: 62px 38px; }
 .gerber-page-intro h1 { max-width: 920px; margin: 15px 0 18px; font-size: clamp(46px, 5vw, 70px); line-height: .98; letter-spacing: -.052em; }
@@ -1043,3 +1043,31 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .gw-artboard { transition: none; }
   .gw-spin { animation-duration: 1.8s; }
 }
+
+/* Shared accessibility, legal documents, and privacy controls. */
+.skip-link { position: fixed; left: 1rem; top: -6rem; z-index: 1000; padding: .8rem 1rem; background: #fff; color: #123f32; border: 2px solid #123f32; border-radius: 4px; }
+.skip-link:focus { top: 1rem; }
+:focus-visible { outline: 3px solid #27745d; outline-offset: 3px; }
+.legal-page { max-width: 900px; padding-top: 3rem; padding-bottom: 4rem; line-height: 1.7; }
+.legal-page h1 { font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.15; margin: 1rem 0; }
+.legal-page h2 { font-size: 1.35rem; margin: 2rem 0 .5rem; }
+.legal-page p { margin: .8rem 0; }
+.legal-page a, .form-privacy-note a, .terms-acceptance a, .privacy-controls a, .privacy-banner a { text-decoration: underline; text-underline-offset: 3px; }
+.legal-version, .form-privacy-note { font-size: .9rem; color: #4c5e55; }
+.legal-actions { display: flex; flex-wrap: wrap; gap: 1.2rem; border-top: 1px solid #d6dfd8; margin-top: 2rem; padding-top: 1rem; }
+.privacy-banner { position: fixed; bottom: 1rem; left: 1rem; right: 1rem; z-index: 200; max-width: 1100px; margin: auto; background: #fff; color: #182d22; border: 1px solid #a6b9ac; border-radius: 8px; padding: 1rem 1.25rem; box-shadow: 0 8px 28px #10251b26; display: flex; align-items: center; gap: 1.5rem; }
+.privacy-banner p, .privacy-controls p { margin: .4rem 0; font-size: .9rem; line-height: 1.55; }
+.privacy-controls { border: 1px solid #c6d3cb; border-radius: 6px; padding: 1.25rem; background: #f7faf8; color: #182d22; }
+.privacy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; flex-shrink: 0; }
+.privacy-actions button { padding: .6rem .85rem; background: #174a38; color: #fff; border: 1px solid #174a38; border-radius: 4px; font: inherit; cursor: pointer; }
+.privacy-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.privacy-controls .privacy-actions { margin-top: 1rem; }
+.external-tool-gate { padding: 2rem; background: #f7faf8; color: #182d22; line-height: 1.6; }
+.terms-acceptance { display: flex; align-items: flex-start; gap: .65rem; font-size: .85rem; line-height: 1.5; margin: 1rem 0; text-align: left; }
+.terms-acceptance input { width: 18px; height: 18px; min-width: 18px; margin-top: 3px; }
+img.gw-svg-host { display: block; width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 800px) { .privacy-banner { flex-direction: column; align-items: stretch; gap: .6rem; max-height: 45vh; overflow-y: auto; } .privacy-actions { flex-shrink: 1; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+.external-image-placeholder { display: block; padding: .7rem; color: #4c5e55; font-size: .75rem; text-align: center; }
+.external-image-placeholder a { text-decoration: underline; }

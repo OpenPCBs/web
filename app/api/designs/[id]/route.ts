@@ -8,7 +8,6 @@ import {
   optionalString,
   readJsonObject,
   requireActiveApiUser,
-  requireApiUser,
 } from "../../_lib/http";
 
 type RouteContext = { params: Promise<{ id: string }> };

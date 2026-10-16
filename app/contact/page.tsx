@@ -6,11 +6,11 @@ import "./contact.css";
 
 export const metadata: Metadata = {
   title: "Contact, Quotes & Sourcing",
-  description: "Request product sourcing, project pricing, order support, or engineering assistance from Thevenin.",
+  description: "Request product sourcing, project pricing, order support, or engineering assistance from Trace.",
 };
 
 type ContactSearchParams = Promise<Record<string, string | string[] | undefined>>;
-type InquiryType = "support" | "quote" | "sourcing" | "license";
+import { inquiryTypes, type InquiryType } from "@/lib/config/inquiries";
 
 function first(value: string | string[] | undefined, maxLength = 180): string | undefined {
   const result = Array.isArray(value) ? value[0] : value;
@@ -20,7 +20,7 @@ function first(value: string | string[] | undefined, maxLength = 180): string | 
 export default async function ContactPage({ searchParams }: { searchParams: ContactSearchParams }) {
   const params = await searchParams;
   const requestedType = first(params.type, 20);
-  const initialType: InquiryType = ["support", "quote", "sourcing", "license"].includes(requestedType ?? "")
+  const initialType: InquiryType = inquiryTypes.includes(requestedType as InquiryType)
     ? requestedType as InquiryType
     : "support";
   const context = first(params.context) ?? first(params.product) ?? first(params.design);
@@ -28,7 +28,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Cont
   return (
     <>
       <SiteHeader active="contact" />
-      <main className="contact-page">
+      <main id="main-content" tabIndex={-1} className="contact-page">
         <section className="contact-hero shell">
           <div>
             <span className="store-kicker">CUSTOMER &amp; APPLICATION SUPPORT</span>

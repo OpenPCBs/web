@@ -1,3 +1,5 @@
+import { site } from "@/lib/config/site";
+import { requireTermsAcceptance, addTermsMetadata } from "@/lib/security/terms";
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { quotes, verificationEvents, verificationRequests, revisions } from "@/db/schema";
@@ -22,6 +24,7 @@ export async function POST(request: Request) {
   try {
     const user = requireApiUser(request);
     const body = await readJsonObject(request);
+    requireTermsAcceptance(body);
     const db = getDb();
     await persistUser(db, user);
     const config = await getStripeCheckoutConfig(db);
@@ -94,7 +97,7 @@ export async function POST(request: Request) {
         config,
         `/v1/checkout/sessions/${encodeURIComponent(verificationRequest.stripeCheckoutSessionId)}`,
       );
-      if (existing.status === "open" && existing.url) {
+      if (existing.status === "open" && existing.url && existing.metadata?.terms_version === site.policyVersion) {
         return Response.json({
           url: existing.url,
           sessionId: existing.id,
@@ -105,6 +108,7 @@ export async function POST(request: Request) {
     }
 
     const form = new URLSearchParams();
+    addTermsMetadata(form);
     form.set("mode", "payment");
     form.set("success_url", `${config.origin}/account?checkout=verification&session_id={CHECKOUT_SESSION_ID}`);
     form.set(
