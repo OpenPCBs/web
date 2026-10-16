@@ -82,7 +82,7 @@ export function AccountCheckoutStatus({
       )}
       <span>{state.message}</span>
       {state.kind === "error" && state.authenticationRequired ? (
-        <a href="/signin-with-chatgpt?return_to=%2Faccount">Sign in to confirm payment</a>
+        <a href="/login?return_to=%2Faccount">Sign in to confirm payment</a>
       ) : null}
     </div>
   );

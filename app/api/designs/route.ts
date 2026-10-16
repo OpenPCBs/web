@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   if (url.searchParams.get("mine") === "1") {
     try {
-      const user = requireApiUser(request);
+      const user = await requireApiUser(request);
       const db = getDb();
       await persistUser(db, user);
       const query = url.searchParams.get("q")?.trim().slice(0, 100);
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = requireApiUser(request);
+    const user = await requireApiUser(request);
     const body = await readJsonObject(request);
     const title = requiredString(body.title, "title", 140);
     const summary = optionalString(body.summary, "summary", 400) ?? "";

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { chatGPTSignInPath, getChatGPTUser } from "@/app/chatgpt-auth";
+import { signInPath, getTraceUser } from "@/app/auth";
 import styles from "@/app/components/design-works.module.css";
 import { SellForm } from "@/app/components/sell-form";
 import { DivisionBanner, SiteFooter, SiteHeader } from "@/app/components/site-shell";
@@ -19,7 +19,7 @@ function first(value: string | string[] | undefined, maxLength = 100): string {
 }
 
 export default async function SellPage({ searchParams }: { searchParams: SellSearchParams }) {
-  const [params, user] = await Promise.all([searchParams, getChatGPTUser()]);
+  const [params, user] = await Promise.all([searchParams, getTraceUser()]);
   const designId = first(params.designId);
   const returnTo = designId ? `/sell?designId=${encodeURIComponent(designId)}` : "/sell";
 
@@ -51,7 +51,7 @@ export default async function SellPage({ searchParams }: { searchParams: SellSea
             <SellForm
               initialDesignId={designId}
               signedIn={Boolean(user)}
-              signInHref={chatGPTSignInPath(returnTo)}
+              signInHref={signInPath(returnTo)}
             />
           </div>
         </div>

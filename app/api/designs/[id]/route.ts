@@ -1,5 +1,5 @@
 import { eq, or } from "drizzle-orm";
-import { getChatGPTUserFromRequest } from "@/app/chatgpt-auth";
+import { getTraceUserFromRequest } from "@/app/auth";
 import { getDb } from "@/db";
 import { designs, revisions, users } from "@/db/schema";
 import {
@@ -24,7 +24,7 @@ export async function GET(request: Request, context: RouteContext) {
       .limit(1);
 
     if (!row) throw new ApiError(404, "not_found", "Design not found.");
-    const user = getChatGPTUserFromRequest(request);
+    const user = await getTraceUserFromRequest(request);
     if (
       row.design.publicationStatus !== "published" &&
       user?.userId !== row.design.ownerId

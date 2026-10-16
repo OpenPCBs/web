@@ -1,5 +1,7 @@
 "use client";
 
+import { SignOutButton } from "./auth-form";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "./native-link";
 import { Box, CircleAlert, FileBadge, GitBranch, LoaderCircle, LogOut, PackageCheck, ShoppingBag } from "lucide-react";
@@ -31,12 +33,10 @@ export function AccountClient({
   user,
   checkout,
   sessionId,
-  signOutHref,
 }: {
   user: { displayName: string; email: string };
   checkout?: string;
   sessionId?: string;
-  signOutHref: string;
 }) {
   const [data, setData] = useState<WorkspaceData>({ orders: [], requests: [], designs: [] });
   const [loading, setLoading] = useState(true);
@@ -82,7 +82,7 @@ export function AccountClient({
         <a href="#orders"><ShoppingBag size={16} />Orders</a>
         <a href="#designs"><GitBranch size={16} />Designs</a>
         <a href="#verification"><FileBadge size={16} />Verification</a>
-        <a href={signOutHref}><LogOut size={16} />Sign out</a>
+        <SignOutButton><LogOut size={16} />Sign out</SignOutButton>
       </aside>
       <section className="account-main">
         <header className="account-heading" id="overview">

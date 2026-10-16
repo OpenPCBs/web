@@ -21,7 +21,7 @@ Assessment date: 2026-10-16. This is an implementation record and owner action l
 - Document real processing, recipients, retention periods, deletion/export procedures, provider log retention, international transfers, DPAs and vendor agreements. Check Sites/OpenAI, Cloudflare, Stripe, suppliers and Ucamco against actual contracts.
 - Define return windows, shipping commitments, RMA destination, return costs, warranty allocation, lab cancellation/deposit treatment and digital-content cancellation rights before presenting specific commercial promises.
 - Confirm intellectual property permissions for all listings and images, contributor licenses, trademark clearance for Trace, and whether a registered DMCA agent is needed. No trademark registration or statutory safe harbor is asserted.
-- Run a live cookie/storage/network inventory including the hosting sign-in layer and payment redirects; application source alone cannot enumerate provider cookies.
+- Run a live cookie/storage/network inventory including Trace session cookies, optional Google sign-in, and payment redirects; application source alone cannot enumerate provider cookies.
 - Assign a person to monitor privacy requests and confirm identity securely, track statutory deadlines, respond/appeal where required, and preserve audit evidence. No automated deletion is implemented.
 - Audit WCAG 2.2 AA with keyboard, screen reader, zoom, color contrast, mobile, and real Gerber workflows. New controls and linting are not an accessibility certification.
 
@@ -51,3 +51,7 @@ Security regressions and migration preservation can be tested locally without li
 The initial lockfile audit reported 48 advisories (26 high, 16 moderate, 6 low). Compatible direct patches and transitive overrides address the available patches, including React server rendering, Vite, undici, WebSocket, image, YAML, URI and expansion dependencies. The remaining advisory is `braces` 3.0.3, inherited by Vinext's build-time glob pipeline, with no patched version reported. This package is not imported by application request handlers; its parser was not found in the generated Worker bundle. Avoid building untrusted repositories or using attacker-controlled glob patterns. Track the upstream fix and remove the exception when available. Do not report a clean full dependency audit.
 
 Browser visual/interaction QA was unavailable in the execution environment. Type checking, linting, the production build, and security/migration regression tests are the automated verification performed. Live payment, hosting authentication and assistive-technology workflows still require an operational smoke test.
+
+## Native authentication cutover
+
+See [authentication setup](authentication.md). Google OAuth and transactional email need owner-provided provider credentials. Keep the current deployment active until both methods are configured and the owner can recover their existing account. Automated tests use an in-memory email sink and do not send messages to customers.

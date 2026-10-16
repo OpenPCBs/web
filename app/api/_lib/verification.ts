@@ -11,7 +11,7 @@ import {
   verificationEvents,
   verificationRequests,
 } from "@/db/schema";
-import type { ChatGPTUser } from "@/app/chatgpt-auth";
+import type { TraceUser } from "@/app/auth";
 import { ApiError } from "./http";
 
 export type VerificationTier =
@@ -59,7 +59,7 @@ export function normalizeVerificationTier(value: unknown): VerificationTier {
 
 export async function createVerificationRequest(
   db: Database,
-  user: ChatGPTUser,
+  user: TraceUser,
   input: { revisionId: string; tier: VerificationTier; notes?: string },
 ) {
   const [target] = await db

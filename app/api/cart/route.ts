@@ -15,7 +15,7 @@ import { serializePublicProduct } from "../products/public-product";
 
 export async function GET(request: Request) {
   try {
-    const user = requireApiUser(request);
+    const user = await requireApiUser(request);
     const db = getDb();
     await persistUser(db, user);
     const rows = await db
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = requireApiUser(request);
+    const user = await requireApiUser(request);
     const body = await readJsonObject(request);
     const productId = requiredString(body.productId, "productId", 100);
     const quantity = positiveInteger(body.quantity ?? 1, "quantity", 25);

@@ -8,7 +8,7 @@ import {
 
 export async function GET(request: Request) {
   try {
-    const user = requireApiUser(request);
+    const user = await requireApiUser(request);
     const db = getDb();
     const orderRows = await db
       .select()
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     // Order records are created only by the server-priced Stripe checkout flow.
-    requireApiUser(request);
+    await requireApiUser(request);
     return Response.json(
       {
         error: {

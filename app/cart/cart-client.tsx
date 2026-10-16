@@ -253,7 +253,7 @@ export function CartClient({
           Trace stores carts with your account so quantities and server-confirmed prices
           persist between devices. No sample cart or browser-only cart is shown.
         </p>
-        <Link className={styles.primaryButton} href={signInHref}>Sign in with ChatGPT</Link>
+        <Link className={styles.primaryButton} href={signInHref}>Sign in to Trace</Link>
       </section>
     );
   }

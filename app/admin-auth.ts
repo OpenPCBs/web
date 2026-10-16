@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import {
-  chatGPTSignInPath,
-  getChatGPTUser,
-  getChatGPTUserFromRequest,
-  type ChatGPTUser,
-} from "@/app/chatgpt-auth";
+  signInPath,
+  getTraceUser,
+  getTraceUserFromRequest,
+  type TraceUser,
+} from "@/app/auth";
 import { getBindings, getDb, type Database } from "@/db";
 import { users } from "@/db/schema";
 import { ApiError } from "@/app/api/_lib/http";
@@ -23,8 +23,8 @@ export type AdminIdentity = {
 type AdminLevel = "staff" | "admin";
 
 export async function requireAdminUser(returnTo = "/admin"): Promise<AdminIdentity> {
-  const user = await getChatGPTUser();
-  if (!user) redirect(chatGPTSignInPath(returnTo));
+  const user = await getTraceUser();
+  if (!user) redirect(signInPath(returnTo));
   try {
     return await resolveAdminIdentity(getDb(), user, "staff");
   } catch (error) {
@@ -39,7 +39,7 @@ export async function requireAdminRequest(
   request: Request,
   level: AdminLevel = "staff",
 ): Promise<AdminIdentity> {
-  const user = getChatGPTUserFromRequest(request);
+  const user = await getTraceUserFromRequest(request);
   if (!user) {
     throw new ApiError(401, "authentication_required", "Sign in to access admin APIs.");
   }
@@ -48,7 +48,7 @@ export async function requireAdminRequest(
 
 async function resolveAdminIdentity(
   db: Database,
-  user: ChatGPTUser,
+  user: TraceUser,
   level: AdminLevel,
 ): Promise<AdminIdentity> {
   const [existingAdmin] = await db.select({ id: users.id }).from(users).where(eq(users.role, "admin")).limit(1);

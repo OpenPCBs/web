@@ -16,6 +16,8 @@
     "check": "pnpm typecheck && pnpm lint && pnpm test"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.10",
+    "better-auth": "1.7.10",
     "drizzle-orm": "0.45.2",
     "jszip": "3.10.1",
     "lucide-react": "0.542.0",

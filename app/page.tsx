@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "./components/native-link";
-import { chatGPTSignInPath, getChatGPTUser } from "./chatgpt-auth";
+import { signInPath, getTraceUser } from "./auth";
 import { HomeProductFeed } from "./components/public-product-catalog";
 import styles from "./components/product-catalog.module.css";
 import { SiteFooter, SiteHeader } from "./components/site-shell";
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const user = await getChatGPTUser();
-  const signInHref = chatGPTSignInPath("/");
+  const user = await getTraceUser();
+  const signInHref = signInPath("/");
 
   return (
     <>

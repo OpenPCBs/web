@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { getChatGPTUserFromRequest } from "@/app/chatgpt-auth";
+import { getTraceUserFromRequest } from "@/app/auth";
 import { getDb } from "@/db";
 import { designs, inquiries, products, revisions } from "@/db/schema";
 import {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const designId = optionalString(body.designId, "designId", 100);
     const revisionId = optionalString(body.revisionId, "revisionId", 100);
     const db = getDb();
-    const user = getChatGPTUserFromRequest(request);
+    const user = await getTraceUserFromRequest(request);
     if (user) await persistUser(db, user);
 
     if (productId) await requireReference(db, products, productId, "productId");

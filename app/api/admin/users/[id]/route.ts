@@ -1,7 +1,7 @@
 import { and, eq, ne } from "drizzle-orm";
 import { requireAdminRequest } from "@/app/admin-auth";
 import { getDb } from "@/db";
-import { users } from "@/db/schema";
+import { authSession, users } from "@/db/schema";
 import { readJsonObject } from "@/app/api/_lib/http";
 import {
   AdminIdentity,
@@ -65,6 +65,9 @@ export async function PATCH(request: Request, context: Context) {
       .update(users)
       .set({ role: nextRole, status: nextStatus, updatedAt: new Date().toISOString() })
       .where(eq(users.id, current.id));
+    if (nextStatus === "suspended" || nextRole !== current.role) {
+      await db.delete(authSession).where(eq(authSession.userId, current.id));
+    }
     const [updated] = await db
       .select()
       .from(users)
