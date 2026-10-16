@@ -1,3 +1,4 @@
+import { site } from "@/lib/config/site";
 import Link from "./native-link";
 import { Search, UserRound } from "lucide-react";
 import { CartIndicator } from "./cart-indicator";
@@ -7,6 +8,7 @@ type HeaderSection = "store" | "contact" | "account" | "docs" | "works";
 export function SiteHeader({ active }: { active?: HeaderSection }) {
   return (
     <header className="commerce-header">
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       <div className="utility-bar">
         <div className="shell utility-inner">
           <nav aria-label="Customer service"><Link href="/contact">Contact &amp; quotes</Link><Link href="/account#orders">Order status</Link><Link href="/docs">Resources</Link></nav>
@@ -14,7 +16,7 @@ export function SiteHeader({ active }: { active?: HeaderSection }) {
         </div>
       </div>
       <div className="shell masthead">
-        <Link className="wordmark" href="/" aria-label="Thevenin home"><span className="wordmark-symbol">V<sub>TH</sub></span><span><b>THEVENIN</b><small>ELECTRONICS SUPPLY</small></span></Link>
+        <Link className="wordmark" href="/" aria-label="Trace home"><span className="wordmark-symbol">T</span><span><b>{site.name.toUpperCase()}</b><small>ELECTRONICS SUPPLY</small></span></Link>
         <form className="header-search" action="/store" role="search">
           <label className="sr-only" htmlFor="site-search">Search products</label>
           <input id="site-search" name="q" placeholder="Search by keyword or part number" />
@@ -31,7 +33,7 @@ export function SiteHeader({ active }: { active?: HeaderSection }) {
           <Link className={active === "contact" ? "active" : ""} aria-current={active === "contact" ? "page" : undefined} href="/contact">Contact &amp; quotes</Link>
           <Link className={active === "account" ? "active" : ""} aria-current={active === "account" ? "page" : undefined} href="/account#orders">Order status</Link>
           <Link className={active === "docs" ? "active" : ""} aria-current={active === "docs" ? "page" : undefined} href="/docs">Resources</Link>
-          <Link className={active === "works" ? "active works-link" : "works-link"} aria-current={active === "works" ? "page" : undefined} href="/marketplace">Thevenin Works</Link>
+          <Link className={active === "works" ? "active works-link" : "works-link"} aria-current={active === "works" ? "page" : undefined} href="/marketplace">Trace Works</Link>
         </nav>
       </div>
     </header>
@@ -42,8 +44,8 @@ export function DivisionBanner() {
   return (
     <div className="division-banner">
       <div className="shell">
-        <Link className="division-name" href="/marketplace"><span className="division-mark">TW</span><span><b>THEVENIN WORKS</b><small>Design marketplace &amp; verification</small></span></Link>
-        <nav aria-label="Thevenin Works"><Link href="/marketplace">Designs</Link><Link href="/viewer">Gerber workbench</Link><Link href="/lab">Lab verification</Link><Link href="/sell">Publish</Link></nav>
+        <Link className="division-name" href="/marketplace"><span className="division-mark">T</span><span><b>TRACE WORKS</b><small>Design marketplace &amp; verification</small></span></Link>
+        <nav aria-label="Trace Works"><Link href="/marketplace">Designs</Link><Link href="/viewer">Gerber workbench</Link><Link href="/lab">Lab verification</Link><Link href="/sell">Publish</Link></nav>
       </div>
     </div>
   );
@@ -57,12 +59,12 @@ export function SiteFooter() {
         <Link href="/contact">Contact &amp; quotes <span>→</span></Link>
       </div>
       <div className="shell footer-grid">
-        <div><Link className="wordmark footer-wordmark" href="/"><span className="wordmark-symbol">V<sub>TH</sub></span><span><b>THEVENIN</b><small>ELECTRONICS SUPPLY</small></span></Link><p>One practical source for specialized electronics, test equipment, engineering designs, and verification.</p></div>
+        <div><Link className="wordmark footer-wordmark" href="/"><span className="wordmark-symbol">T</span><span><b>{site.name.toUpperCase()}</b><small>ELECTRONICS SUPPLY</small></span></Link><p>One practical source for specialized electronics, test equipment, engineering designs, and verification.</p></div>
         <div><b>Shop</b><Link href="/store">All products</Link><Link href="/contact">Contact &amp; quotes</Link><Link href="/account#orders">Order status</Link></div>
-        <div><b>Thevenin Works</b><Link href="/marketplace">Design marketplace</Link><Link href="/viewer">Gerber workbench</Link><Link href="/lab">Paid lab verification</Link><Link href="/sell">Publish a design</Link></div>
-        <div><b>Information</b><Link href="/docs">Trust &amp; policies</Link><Link href="/docs#storage">File privacy</Link><Link href="https://github.com/OpenPCBs/web">GitHub</Link></div>
+        <div><b>Trace Works</b><Link href="/marketplace">Design marketplace</Link><Link href="/viewer">Gerber workbench</Link><Link href="/lab">Paid lab verification</Link><Link href="/sell">Publish a design</Link></div>
+        <div><b>Information</b><Link href="/docs">Trust center</Link><Link href="/legal/privacy">Privacy notice</Link><Link href="/legal/terms">Terms of use</Link><Link href="/legal/cookies">Cookies &amp; storage</Link><Link href="/privacy/choices">Privacy choices / Do not sell or share</Link><Link href="/legal/shipping">Shipping</Link><Link href="/legal/returns">Returns &amp; refunds</Link><Link href="/legal/accessibility">Accessibility</Link><Link href="/legal/security">Security reporting</Link><Link href={site.repository}>GitHub</Link></div>
       </div>
-      <div className="shell footer-legal"><span>© 2026 Thevenin</span><span>Products are listed only after they are reviewed and published.</span></div>
+      <div className="shell footer-legal"><span>© {new Date().getFullYear()} {site.organization}</span><span>Products are listed only after they are reviewed and published.</span></div>
     </footer>
   );
 }

@@ -36,9 +36,9 @@ export default function AdminNav({ user }: { user: AdminIdentity }) {
 
   return (
     <aside className="admin-sidebar">
-      <Link className="admin-brand" href="/admin" aria-label="Thevenin administration home">
-        <span className="admin-brand-mark">V<sub>TH</sub></span>
-        <span><b>THEVENIN</b><small>OPERATIONS</small></span>
+      <Link className="admin-brand" href="/admin" aria-label="Trace administration home">
+        <span className="admin-brand-mark">T</span>
+        <span><b>TRACE</b><small>OPERATIONS</small></span>
       </Link>
 
       <nav className="admin-nav" aria-label="Administration">

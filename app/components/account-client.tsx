@@ -75,9 +75,9 @@ export function AccountClient({
   const publishedDesigns = data.designs.filter((design) => design.publicationStatus === "published").length;
 
   return (
-    <main className="account-shell shell">
+    <main id="main-content" tabIndex={-1} className="account-shell shell">
       <aside className="account-nav">
-        <span>THEVENIN WORKSPACE</span>
+        <span>TRACE WORKSPACE</span>
         <a href="#overview"><Box size={16} />Overview</a>
         <a href="#orders"><ShoppingBag size={16} />Orders</a>
         <a href="#designs"><GitBranch size={16} />Designs</a>

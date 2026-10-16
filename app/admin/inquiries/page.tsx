@@ -1,5 +1,7 @@
 "use client";
 
+import { inquiryOptions } from "@/lib/config/inquiries";
+
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Mail, Save, Search } from "lucide-react";
 import { adminRequest, errorMessage, shortDateTime } from "../admin-api";
@@ -79,7 +81,7 @@ export default function InquiriesPage() {
       {notice ? <div className="admin-alert" data-tone="success" role="status">{notice}</div> : null}
       <div className="admin-filter-bar">
         <div className="admin-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search customer, company, or message" aria-label="Search inquiries" /></div>
-        <div className="admin-filter-field"><label htmlFor="inquiry-type">Type</label><select id="inquiry-type" value={type} onChange={(event) => setType(event.target.value as typeof type)}><option value="all">All types</option><option value="support">Support</option><option value="quote">Quote</option><option value="sourcing">Sourcing</option><option value="license">License</option></select></div>
+        <div className="admin-filter-field"><label htmlFor="inquiry-type">Type</label><select id="inquiry-type" value={type} onChange={(event) => setType(event.target.value as typeof type)}><option value="all">All types</option>{inquiryOptions.map(([value, title]) => <option key={value} value={value}>{title}</option>)}</select></div>
         <div className="admin-filter-field"><label htmlFor="inquiry-status">Status</label><select id="inquiry-status" value={status} onChange={(event) => setStatus(event.target.value as typeof status)}><option value="all">All statuses</option>{statuses.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></div>
       </div>
       <section className="admin-panel">

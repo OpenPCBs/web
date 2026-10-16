@@ -1,5 +1,7 @@
 "use client";
 
+import { PrivacyImage } from "@/app/components/privacy-image";
+
 import Link from "../../components/native-link";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, ImagePlus, LoaderCircle, Save, Trash2 } from "lucide-react";
@@ -170,7 +172,7 @@ export default function ProductForm({ productId }: { productId?: string }) {
             <h2>Product details</h2><p>The name, SKU, category, and description shown to customers.</p>
             <div className="admin-form-grid">
               <label className="admin-field"><span>Name</span><input required maxLength={160} value={form.name} onChange={(event) => update("name", event.target.value)} placeholder="e.g. 600 V differential probe" /></label>
-              <label className="admin-field"><span>SKU</span><input required maxLength={80} value={form.sku} onChange={(event) => update("sku", event.target.value)} placeholder="TH-PROBE-600" /></label>
+              <label className="admin-field"><span>SKU</span><input required maxLength={80} value={form.sku} onChange={(event) => update("sku", event.target.value)} placeholder="TR-PROBE-600" /></label>
               <label className="admin-field"><span>Slug</span><input maxLength={180} value={form.slug} onChange={(event) => update("slug", event.target.value)} placeholder="Generated from name when blank" /><small>Lowercase URL identifier. Leave blank on create to generate it.</small></label>
               <label className="admin-field"><span>Category</span><input required maxLength={100} value={form.category} onChange={(event) => update("category", event.target.value)} placeholder="Test & measurement" /></label>
               <label className="admin-field admin-field--wide"><span>Description</span><textarea maxLength={4000} value={form.description} onChange={(event) => update("description", event.target.value)} placeholder="What it is, the relevant range, and who it is for." /></label>
@@ -195,8 +197,8 @@ export default function ProductForm({ productId }: { productId?: string }) {
         <aside className="admin-side-stack">
           <section className="admin-side-card">
             <h2>Primary image</h2><p>Upload a clean product image. It is stored privately and served through the product image endpoint.</p>
-            <div className="admin-image-preview">{displayImage ? <img src={displayImage} alt="Product preview" /> : <span className="admin-image-placeholder"><ImagePlus size={25} /> No image selected</span>}</div>
-            <label className="admin-file-picker"><input type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={chooseImage} /></label>
+            <div className="admin-image-preview">{displayImage ? <PrivacyImage src={displayImage} alt="Product preview" /> : <span className="admin-image-placeholder"><ImagePlus size={25} /> No image selected</span>}</div>
+            <label className="admin-file-picker">Choose product image<input type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={chooseImage} /></label>
             {imageMeta ? <p className="admin-upload-meta">{imageMeta}</p> : null}
             {displayImage ? <button className="admin-button admin-button--danger" type="button" disabled={removingImage} onClick={() => void removeImage()}><Trash2 size={14} /> {removingImage ? "Removing…" : "Remove image"}</button> : null}
           </section>

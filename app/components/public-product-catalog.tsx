@@ -1,5 +1,7 @@
 "use client";
 
+import { PrivacyImage } from "@/app/components/privacy-image";
+
 import Link from "./native-link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
@@ -80,7 +82,7 @@ function ProductMedia({ product, large = false }: { product: ProductRecord; larg
   return (
     <div className={large ? styles.mediaLarge : styles.media}>
       {imageUrl && !failed ? (
-        <img
+        <PrivacyImage
           className={styles.productImage}
           src={imageUrl}
           alt={product.name}

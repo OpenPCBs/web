@@ -9,6 +9,6 @@ type NativeLinkProps = Omit<ComponentPropsWithoutRef<"a">, "href"> & {
  * Link shim can intercept ordinary clicks without completing the route change
  * in production, while modifier clicks still work.
  */
-export default function NativeLink({ href, ...props }: NativeLinkProps) {
-  return <a href={href} {...props} />;
+export default function NativeLink({ href, children, ...props }: NativeLinkProps) {
+  return <a href={href} {...props}>{children}</a>;
 }

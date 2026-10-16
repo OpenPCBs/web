@@ -6,7 +6,7 @@ import { DivisionBanner, SiteFooter, SiteHeader } from "@/app/components/site-sh
 
 export const metadata: Metadata = {
   title: "Design Creator Workspace",
-  description: "Create, edit, publish, archive, and attach revision files to a database-backed Thevenin Works design.",
+  description: "Create, edit, publish, archive, and attach revision files to a database-backed Trace Works design.",
 };
 
 export const dynamic = "force-dynamic";
@@ -27,10 +27,10 @@ export default async function SellPage({ searchParams }: { searchParams: SellSea
     <>
       <SiteHeader active="works" />
       <DivisionBanner />
-      <main className={styles.page}>
+      <main id="main-content" tabIndex={-1} className={styles.page}>
         <div className={styles.container}>
           <section className={styles.sellHero}>
-            <span className={styles.kicker}>THEVENIN WORKS · CREATOR WORKSPACE</span>
+            <span className={styles.kicker}>TRACE WORKS · CREATOR WORKSPACE</span>
             <h1>{designId ? "Edit your design record" : "Create a private design draft"}</h1>
             <p>
               Design fields, publication state, revision IDs, and uploaded files are persisted.

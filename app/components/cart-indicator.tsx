@@ -4,7 +4,7 @@ import Link from "./native-link";
 import { ShoppingCart } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-export const CART_CHANGED_EVENT = "thevenin:cart-changed";
+export const CART_CHANGED_EVENT = "trace:cart-changed";
 
 function quantityFromPayload(payload: unknown): number {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return 0;

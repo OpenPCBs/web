@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       }
       const form = eventForm();
       form.set("url", webhookUrl);
-      form.set("description", "Thevenin checkout and verification reconciliation");
+      form.set("description", "Trace checkout and verification reconciliation");
       endpoint = await stripeRequest<StripeWebhookEndpoint>(
         { secretKey: effective.secretKey },
         `/v1/webhook_endpoints/${encodeURIComponent(existing.id)}`,
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       }
       const form = eventForm();
       form.set("url", webhookUrl);
-      form.set("description", "Thevenin checkout and verification reconciliation");
+      form.set("description", "Trace checkout and verification reconciliation");
       endpoint = await stripeRequest<StripeWebhookEndpoint>(
         { secretKey: effective.secretKey },
         "/v1/webhook_endpoints",

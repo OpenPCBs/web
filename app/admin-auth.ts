@@ -51,7 +51,8 @@ async function resolveAdminIdentity(
   user: ChatGPTUser,
   level: AdminLevel,
 ): Promise<AdminIdentity> {
-  const bootstrap = bootstrapEmails().has(user.email.toLowerCase());
+  const [existingAdmin] = await db.select({ id: users.id }).from(users).where(eq(users.role, "admin")).limit(1);
+  const bootstrap = !existingAdmin && bootstrapEmails().has(user.email.toLowerCase());
   let [record] = await db
     .select()
     .from(users)

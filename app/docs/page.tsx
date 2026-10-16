@@ -1,12 +1,32 @@
 import type { Metadata } from "next";
 import { SiteFooter, SiteHeader } from "../components/site-shell";
+import { policies } from "@/lib/config/policies";
 
-export const metadata: Metadata = { title: "Trust & Platform Policies", description: "How Thevenin handles verification, revisions, licensing, suppliers, safety, files, and support." };
-export default function DocsPage() { const sections = [
-  ["verification","Verification policy","Community, Built, Verified, and Lab Verified are revision-specific evidence levels. Lab Verified means Thevenin Works reproduced and tested the stated revision under the public certificate scope; it is not UL, CE, FCC, safety, or regulatory certification."],
-  ["licenses","Licensing and IP","Creators choose an explicit hardware, documentation, software, and commercial license. Buyers receive only the rights named on the listing. Takedown, counter-notice, refund, and dispute processes are recorded against the release."],
-  ["safety","High-voltage safety","Power-electronics designs may involve lethal energy. Marketplace information is not a substitute for qualified engineering review, controlled lab procedures, protective equipment, or applicable standards."],
-  ["suppliers","Supplier program","Thevenin seeks authorized reseller relationships, dealer pricing, direct fulfillment, blind shipping, inventory feeds, lead-time feeds, RMA ownership, warranty procedures, and university programs."],
-  ["storage","Files and privacy","Source packages and lab evidence remain private by default in low-cost object storage. Initial Gerber previews run locally. Public listings use derived previews; downloads use time-limited access."],
-  ["support","Support","Order, quote, sourcing, license, lab, and safety requests use the contact and support form. Each submission receives a reference number and enters the private admin queue for follow-up."],
-]; return <><SiteHeader active="docs" /><main className="docs-layout shell"><aside><span className="micro-label">TRUST CENTER</span>{sections.map(([id,title]) => <a href={`#${id}`} key={id}>{title}</a>)}</aside><section><div className="page-title"><span className="kicker">THEVENIN POLICIES</span><h1>Precise claims.<br />Traceable decisions.</h1><p>The practical rules behind revisions, evidence, licensing, procurement, privacy, and safety.</p></div>{sections.map(([id,title,copy]) => <article id={id} key={id}><span className="micro-label">{id.toUpperCase()}</span><h2>{title}</h2><p>{copy}</p></article>)}</section></main><SiteFooter /></>; }
+export const metadata: Metadata = {
+  title: "Trust center",
+  description: "Trace policies, privacy choices, engineering scope, and support.",
+};
+
+export default function DocsPage() {
+  return (
+    <>
+      <SiteHeader active="docs" />
+      <main id="main-content" tabIndex={-1} className="docs-layout shell">
+        <aside>
+          <span className="micro-label">TRUST CENTER</span>
+          {Object.entries(policies).map(([slug, policy]) => <a href={`/legal/${slug}`} key={slug}>{policy.title}</a>)}
+          <a href="/privacy/choices">Privacy choices</a>
+        </aside>
+        <section>
+          <div className="page-title"><span className="kicker">TRACE POLICIES</span><h1>Clear scope.<br />Informed choices.</h1><p>Understand how the platform handles your information, purchases, design files, and verification evidence.</p></div>
+          <article id="verification"><h2>Revision-specific verification</h2><p>Evidence applies to the stated design revision and recorded testing scope. A lab badge is not UL, CE, FCC, safety, or regulatory certification. Validate a design for its intended operating conditions before using it.</p></article>
+          <article id="storage"><h2>Files and privacy</h2><p>The local Gerber workbench processes opened files in your browser. Explicitly uploading a file to a design sends it to server storage. Drafts and private files require access checks; making a file public on a published revision allows visitors to download it. The external viewer stays blocked until you allow it in Privacy choices.</p><a href="/legal/privacy">Read the privacy notice →</a></article>
+          <article id="licenses"><h2>Licensing and intellectual property</h2><p>Use the license associated with the particular design release. Public availability alone does not grant unrestricted rights. Contributors are responsible for having permission to share their materials.</p><a href="/contact?type=copyright">Report an intellectual property concern →</a></article>
+          <article id="safety"><h2>Engineering safety</h2><p>Power-electronics designs may involve lethal energy. Listing information, viewer results, and verification reports do not replace qualified engineering review, controlled lab procedures, or applicable standards.</p></article>
+          <article id="support"><h2>Support and rights requests</h2><p>Use the contact form for orders, privacy rights, accessibility assistance, security reports, and copyright concerns. Each saved submission receives a reference and enters the private operations queue.</p><a href="/contact">Contact Trace →</a></article>
+        </section>
+      </main>
+      <SiteFooter />
+    </>
+  );
+}

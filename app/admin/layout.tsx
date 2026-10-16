@@ -6,7 +6,7 @@ import AdminNav from "./admin-nav";
 import "./admin.css";
 
 export const metadata: Metadata = {
-  title: { default: "Operations", template: "%s | Thevenin Operations" },
+  title: { default: "Operations", template: "%s | Trace Operations" },
   robots: { index: false, follow: false },
 };
 
@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
           <div><span className="admin-status-dot" /> Internal operations</div>
           <Link href="/" target="_blank">View storefront <ExternalLink size={14} /></Link>
         </header>
-        <main className="admin-main">{children}</main>
+        <main id="main-content" tabIndex={-1} className="admin-main">{children}</main>
       </div>
     </div>
   );

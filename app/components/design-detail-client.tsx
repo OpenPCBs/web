@@ -1,5 +1,7 @@
 "use client";
 
+import { PrivacyImage } from "@/app/components/privacy-image";
+
 import Link from "./native-link";
 import { useEffect, useState } from "react";
 import {
@@ -23,7 +25,7 @@ function Cover({ design }: { design: DesignRecord }) {
   return (
     <div className={styles.detailCover}>
       {url && !failed ? (
-        <img src={url} alt={design.title} onError={() => setFailed(true)} />
+        <PrivacyImage src={url} alt={design.title} onError={() => setFailed(true)} />
       ) : (
         <div><span>Cover image not provided</span><small>{design.category}</small></div>
       )}
@@ -122,7 +124,7 @@ export function DesignDetailClient({ slug }: { slug: string }) {
     <>
       <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
         <Link href="/">Home</Link><span aria-hidden="true">/</span>
-        <Link href="/marketplace">Thevenin Works</Link><span aria-hidden="true">/</span>
+        <Link href="/marketplace">Trace Works</Link><span aria-hidden="true">/</span>
         <span aria-current="page">{design.title}</span>
       </nav>
 

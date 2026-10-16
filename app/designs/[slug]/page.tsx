@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: { absolute: "Design Record | Thevenin Works" },
-    description: "View a persisted Thevenin Works design, its current revision, uploaded files, and recorded verification status.",
+    title: { absolute: "Design Record | Trace Works" },
+    description: "View a persisted Trace Works design, its current revision, uploaded files, and recorded verification status.",
   };
 }
 
@@ -20,7 +20,7 @@ export default async function DesignDetailPage({ params }: { params: RouteParams
     <>
       <SiteHeader active="works" />
       <DivisionBanner />
-      <main className={styles.page}>
+      <main id="main-content" tabIndex={-1} className={styles.page}>
         <div className={styles.container}>
           <DesignDetailClient slug={slug} />
         </div>
