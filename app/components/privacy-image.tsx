@@ -2,7 +2,7 @@
 
 import type { ComponentPropsWithoutRef } from "react";
 import { usePrivacyChoice } from "./privacy-controls";
-import { safeImageSource } from "@/lib/client/image-source";
+import { encodeImageUrl, safeImageSource } from "@/lib/client/image-source";
 import { site } from "@/lib/config/site";
 
 /** Supplier-hosted images are optional external connections, too. */
@@ -13,5 +13,5 @@ export function PrivacyImage({ src, alt, ...props }: ComponentPropsWithoutRef<"i
   if (!image.local && (!ready || !choice?.externalMedia || globalControl)) {
     return <span className="external-image-placeholder" role="img" aria-label={alt || "External product image blocked"}>External image · <a href="/privacy/choices">Privacy choices</a></span>;
   }
-  return <img {...props} src={image.src} alt={alt ?? ""} referrerPolicy="no-referrer" />;
+  return <img {...props} src={encodeImageUrl(image.src)} alt={alt ?? ""} referrerPolicy="no-referrer" />;
 }

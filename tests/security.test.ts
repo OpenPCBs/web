@@ -10,7 +10,7 @@ import { verifyStripeSignature } from "../lib/security/stripe-signature";
 import { requireTermsAcceptance, addTermsMetadata } from "../lib/security/terms";
 import { parsePrivacyChoice } from "../lib/client/privacy";
 import { site } from "../lib/config/site";
-import { safeImageSource } from "../lib/client/image-source";
+import { encodeImageUrl, safeImageSource } from "../lib/client/image-source";
 
 const origin = "https://bcruse.dev";
 const mutation = (headers: Record<string, string> = {}, path = "/api/cart") => new Request(origin + path, { method: "POST", headers });
@@ -23,6 +23,8 @@ test("image sources reject executable schemes, HTML, credentials, and foreign ob
   assert.deepEqual(safeImageSource("/api/products/p/image", origin), { src: "/api/products/p/image", local: true });
   assert.deepEqual(safeImageSource("https://supplier.example/image.png", origin), { src: "https://supplier.example/image.png", local: false });
   assert.deepEqual(safeImageSource("blob:https://bcruse.dev/id", origin), { src: "blob:https://bcruse.dev/id", local: true });
+  assert.equal(encodeImageUrl("https://supplier.example/a%20b.png?x=a%26b&y=2"), "https://supplier.example/a%20b.png?x=a%26b&y=2");
+  assert.equal(encodeImageUrl("https://supplier.example/<image>.png"), "https://supplier.example/%3Cimage%3E.png");
 });
 
 test("mutations require the exact origin and reject cross-site and sibling origins", () => {
